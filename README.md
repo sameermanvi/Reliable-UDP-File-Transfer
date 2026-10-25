@@ -52,6 +52,13 @@ Client summaries report file bytes, CRC-32, original DATA packet count, total DA
 sends, DATA/control retransmissions, elapsed seconds, and payload goodput in Mb/s.
 Server summaries report duplicates and out-of-order arrivals.
 
+## Earlier stop-and-wait baseline
+
+The implementation from PR #3 is preserved with its matching server in
+[`examples/stop_and_wait`](examples/stop_and_wait/README.md). Its packet format
+is incompatible with the Selective Repeat protocol. The supported pair is the
+Makefile-built `src/client` and `src/server`; use the archived pair only together.
+
 ## Design and project scope
 
 - [Architecture and packet layout](docs/ARCHITECTURE.md)
