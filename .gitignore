@@ -1,0 +1,5 @@
+/src/client
+/src/server
+/src/*.o
+__pycache__/
+*.part.??????
