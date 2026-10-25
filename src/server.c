@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,126 +9,413 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include "protocol.h"
 
-#define CHUNK_SIZE 1024
-#define RECEIVE_TIMEOUT_SECONDS 2
+#define OUTPUT_FILE "received_file.bin"
+#define FINAL_ACK_WAIT_SECONDS 3
 
-static int parse_port(const char *value, uint16_t *port)
+static int send_ack(int sock, const Packet *ack,
+                    const struct sockaddr_in *client,
+                    socklen_t client_len)
 {
-    char *end;
-    unsigned long parsed = strtoul(value, &end, 10);
+    ssize_t sent = sendto(sock, ack, PACKET_HEADER_SIZE, 0,
+                          (const struct sockaddr *)client, client_len);
 
-    if (*value == '\0' || *end != '\0' || parsed > UINT16_MAX || parsed == 0) {
+    if (sent != (ssize_t)PACKET_HEADER_SIZE) {
+        perror("sendto ACK");
         return -1;
     }
 
-    *port = (uint16_t)parsed;
     return 0;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <port> <output-file>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
+    int server_socket = socket(AF_INET, SOCK_DGRAM, 0);
 
-    uint16_t port;
-    if (parse_port(argv[1], &port) != 0) {
-        fprintf(stderr, "Invalid port: %s\n", argv[1]);
-        return EXIT_FAILURE;
-    }
-
-    FILE *output = fopen(argv[2], "wb");
-    if (output == NULL) {
-        perror("fopen");
-        return EXIT_FAILURE;
-    }
-
-    int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_fd < 0) {
+    if (server_socket < 0) {
         perror("socket");
-        fclose(output);
         return EXIT_FAILURE;
     }
 
-    struct timeval timeout = {
-        .tv_sec = RECEIVE_TIMEOUT_SECONDS,
-        .tv_usec = 0
-    };
-    if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout,
-                   sizeof(timeout)) < 0) {
-        perror("setsockopt");
-        close(socket_fd);
-        fclose(output);
-        return EXIT_FAILURE;
-    }
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(UDP_PORT);
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    struct sockaddr_in server_address;
-    memset(&server_address, 0, sizeof(server_address));
-    server_address.sin_family = AF_INET;
-    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
-    server_address.sin_port = htons(port);
-
-    if (bind(socket_fd, (struct sockaddr *)&server_address,
-             sizeof(server_address)) < 0) {
+    if (bind(server_socket, (struct sockaddr *)&server_addr,
+             sizeof(server_addr)) < 0) {
         perror("bind");
-        close(socket_fd);
-        fclose(output);
+        close(server_socket);
         return EXIT_FAILURE;
     }
 
-    printf("Listening on UDP port %u...\n", port);
+    printf("Reliable UDP File Transfer Server\n");
+    printf("Listening on UDP port %d...\n", UDP_PORT);
+    fflush(stdout);
 
-    unsigned char buffer[CHUNK_SIZE];
-    struct sockaddr_in client_address;
-    socklen_t client_address_length = sizeof(client_address);
-    int received_data = 0;
-    size_t total_bytes = 0;
+    FILE *file = NULL;
+    Packet packet;
+    Packet ack;
+
+    struct sockaddr_in transfer_client;
+    memset(&transfer_client, 0, sizeof(transfer_client));
+
+    uint64_t expected_size = 0;
+    uint64_t received_size = 0;
+    uint32_t expected_seq = 1;
+    uint32_t last_ack = 0;
+    uint32_t final_seq = 0;
+
+    unsigned char final_data[DATA_SIZE];
+    uint32_t final_data_len = 0;
+    uint32_t final_checksum = 0;
+
+    int started = 0;
+    int success = 0;
 
     for (;;) {
-        ssize_t received = recvfrom(socket_fd, buffer, sizeof(buffer), 0,
-                                    (struct sockaddr *)&client_address,
-                                    &client_address_length);
-        if (received < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                if (received_data) {
+        memset(&packet, 0, sizeof(packet));
+
+        struct sockaddr_in client_addr;
+        memset(&client_addr, 0, sizeof(client_addr));
+        socklen_t client_len = sizeof(client_addr);
+
+        ssize_t n = recvfrom(server_socket, &packet, sizeof(packet), 0,
+                             (struct sockaddr *)&client_addr, &client_len);
+
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+
+            perror("recvfrom");
+            break;
+        }
+
+        if (n < (ssize_t)PACKET_HEADER_SIZE ||
+            packet.magic != PACKET_MAGIC)
+            continue;
+
+        if (!started) {
+            if (packet.type != PACKET_START ||
+                packet.seq != 0 ||
+                n != (ssize_t)PACKET_HEADER_SIZE)
+                continue;
+
+            expected_size = packet.total_size;
+            transfer_client = client_addr;
+
+            file = fopen(OUTPUT_FILE, "wb");
+            if (file == NULL) {
+                perror("fopen");
+                break;
+            }
+
+            started = 1;
+
+            printf("Client connected: %s\n",
+                   inet_ntoa(client_addr.sin_addr));
+            printf("Expected file size: %" PRIu64 " bytes\n",
+                   expected_size);
+
+            if (expected_size == 0) {
+                if (fflush(file) != 0) {
+                    perror("fflush");
                     break;
                 }
-                fprintf(stderr, "Timed out waiting for transfer data.\n");
-                close(socket_fd);
-                fclose(output);
-                return EXIT_FAILURE;
+
+                if (fclose(file) != 0) {
+                    file = NULL;
+                    perror("fclose");
+                    break;
+                }
+
+                file = NULL;
+                success = 1;
+                printf("Empty file received successfully.\n");
             }
-            if (errno == EINTR) {
-                continue;
+
+            memset(&ack, 0, sizeof(ack));
+            ack.magic = PACKET_MAGIC;
+            ack.type = PACKET_ACK;
+            ack.seq = 0;
+
+            if (send_ack(server_socket, &ack, &client_addr,
+                         client_len) != 0) {
+                success = 0;
+                break;
             }
-            perror("recvfrom");
-            close(socket_fd);
-            fclose(output);
-            return EXIT_FAILURE;
+
+                        if (expected_size == 0) {
+                struct timeval timeout;
+                timeout.tv_sec = FINAL_ACK_WAIT_SECONDS;
+                timeout.tv_usec = 0;
+
+                if (setsockopt(server_socket, SOL_SOCKET, SO_RCVTIMEO,
+                               &timeout, sizeof(timeout)) < 0) {
+                    perror("setsockopt");
+                    success = 0;
+                    break;
+                }
+
+                for (;;) {
+                    Packet retry_packet;
+                    struct sockaddr_in retry_client;
+                    socklen_t retry_client_len = sizeof(retry_client);
+
+                    ssize_t retry_n = recvfrom(
+                        server_socket, &retry_packet,
+                        sizeof(retry_packet), 0,
+                        (struct sockaddr *)&retry_client,
+                        &retry_client_len
+                    );
+
+                    if (retry_n < 0) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK)
+                            break;
+
+                        if (errno == EINTR)
+                            continue;
+
+                        perror("recvfrom empty-file retry");
+                        success = 0;
+                        break;
+                    }
+
+                    if (retry_client.sin_addr.s_addr !=
+                            transfer_client.sin_addr.s_addr ||
+                        retry_client.sin_port != transfer_client.sin_port)
+                        continue;
+
+                    if (retry_n != (ssize_t)PACKET_HEADER_SIZE ||
+                        retry_packet.magic != PACKET_MAGIC ||
+                        retry_packet.type != PACKET_START ||
+                        retry_packet.seq != 0 ||
+                        retry_packet.total_size != 0)
+                        continue;
+
+                    memset(&ack, 0, sizeof(ack));
+                    ack.magic = PACKET_MAGIC;
+                    ack.type = PACKET_ACK;
+                    ack.seq = 0;
+
+                    if (send_ack(server_socket, &ack, &retry_client,
+                                 retry_client_len) != 0) {
+                        success = 0;
+                        break;
+                    }
+
+                    printf("Re-acknowledged empty-file START packet.\n");
+                }
+
+                break;
+            }
+
+            continue;
         }
 
-        if (fwrite(buffer, 1, (size_t)received, output) != (size_t)received) {
-            perror("fwrite");
-            close(socket_fd);
-            fclose(output);
-            return EXIT_FAILURE;
+        if (client_addr.sin_addr.s_addr !=
+                transfer_client.sin_addr.s_addr ||
+            client_addr.sin_port != transfer_client.sin_port)
+            continue;
+
+        if (packet.type == PACKET_START &&
+            packet.seq == 0 &&
+            n == (ssize_t)PACKET_HEADER_SIZE &&
+            packet.total_size == expected_size) {
+            memset(&ack, 0, sizeof(ack));
+            ack.magic = PACKET_MAGIC;
+            ack.type = PACKET_ACK;
+            ack.seq = 0;
+
+            if (send_ack(server_socket, &ack, &client_addr,
+                         client_len) != 0)
+                break;
+
+            continue;
         }
 
-        received_data = 1;
-        total_bytes += (size_t)received;
-        printf("Received chunk: %zd bytes (total: %zu)\n",
-               received, total_bytes);
+        if (packet.type != PACKET_DATA ||
+            packet.data_len == 0 ||
+            packet.data_len > DATA_SIZE ||
+            n != (ssize_t)(PACKET_HEADER_SIZE + packet.data_len))
+            continue;
+
+        if (payload_checksum(packet.data, packet.data_len) !=
+            packet.checksum) {
+            fprintf(stderr, "Checksum error in packet %" PRIu32 "\n",
+                    packet.seq);
+            continue;
+        }
+
+        if (packet.seq == expected_seq) {
+            if (received_size + packet.data_len > expected_size) {
+                fprintf(stderr, "Unexpected file size.\n");
+                break;
+            }
+
+            if (received_size + packet.data_len == expected_size) {
+                /*
+                 * Save the final packet so a retransmission can be
+                 * validated after the file has been closed.
+                 */
+                final_seq = packet.seq;
+                final_data_len = packet.data_len;
+                final_checksum = packet.checksum;
+                memcpy(final_data, packet.data, packet.data_len);
+
+                if (fwrite(packet.data, 1, packet.data_len, file) !=
+                    packet.data_len) {
+                    perror("fwrite");
+                    break;
+                }
+
+                received_size += packet.data_len;
+                last_ack = packet.seq;
+                expected_seq++;
+
+                if (fflush(file) != 0) {
+                    perror("fflush");
+                    break;
+                }
+
+                if (fclose(file) != 0) {
+                    file = NULL;
+                    perror("fclose");
+                    break;
+                }
+
+                file = NULL;
+                success = 1;
+
+                printf("Received final packet %" PRIu32
+                       " (%" PRIu32 " bytes)\n",
+                       final_seq, final_data_len);
+
+                printf("File received successfully: %s\n", OUTPUT_FILE);
+            } else {
+                size_t written = fwrite(
+                    packet.data, 1, packet.data_len, file
+                );
+
+                if (written != packet.data_len) {
+                    perror("fwrite");
+                    break;
+                }
+
+                received_size += packet.data_len;
+                last_ack = packet.seq;
+                expected_seq++;
+
+                printf("Received packet %" PRIu32
+                       " (%" PRIu32 " bytes; %" PRIu64 "/%" PRIu64 ")\n",
+                       packet.seq, packet.data_len,
+                       received_size, expected_size);
+            }
+        } else if (packet.seq < expected_seq) {
+            /*
+             * Duplicate packet: don't write it twice.
+             * Re-ACK the most recent in-order packet.
+             */
+        } else {
+            /* Out-of-order packet: acknowledge the last in-order packet. */
+        }
+
+        memset(&ack, 0, sizeof(ack));
+        ack.magic = PACKET_MAGIC;
+        ack.type = PACKET_ACK;
+        ack.seq = last_ack;
+
+        if (success && received_size == expected_size) {
+            ack.seq = final_seq;
+        }
+
+        if (send_ack(server_socket, &ack, &client_addr,
+                     client_len) != 0) {
+            success = 0;
+            break;
+        }
+
+        if (success && received_size == expected_size) {
+            struct timeval timeout;
+            timeout.tv_sec = FINAL_ACK_WAIT_SECONDS;
+            timeout.tv_usec = 0;
+
+            if (setsockopt(server_socket, SOL_SOCKET, SO_RCVTIMEO,
+                           &timeout, sizeof(timeout)) < 0) {
+                perror("setsockopt");
+                success = 0;
+                break;
+            }
+
+            for (;;) {
+                Packet retry_packet;
+                struct sockaddr_in retry_client;
+                socklen_t retry_client_len = sizeof(retry_client);
+
+                ssize_t retry_n = recvfrom(
+                    server_socket, &retry_packet, sizeof(retry_packet), 0,
+                    (struct sockaddr *)&retry_client, &retry_client_len
+                );
+
+                if (retry_n < 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK)
+                        break;
+
+                    if (errno == EINTR)
+                        continue;
+
+                    perror("recvfrom final retry");
+                    success = 0;
+                    break;
+                }
+
+                if (retry_client.sin_addr.s_addr !=
+                        transfer_client.sin_addr.s_addr ||
+                    retry_client.sin_port != transfer_client.sin_port)
+                    continue;
+
+                if (retry_n < (ssize_t)PACKET_HEADER_SIZE ||
+                    retry_packet.magic != PACKET_MAGIC ||
+                    retry_packet.type != PACKET_DATA ||
+                    retry_packet.seq != final_seq ||
+                    retry_packet.data_len != final_data_len ||
+                    retry_packet.checksum != final_checksum ||
+                    retry_n != (ssize_t)(PACKET_HEADER_SIZE +
+                                         retry_packet.data_len) ||
+                    memcmp(retry_packet.data, final_data,
+                           final_data_len) != 0)
+                    continue;
+
+                memset(&ack, 0, sizeof(ack));
+                ack.magic = PACKET_MAGIC;
+                ack.type = PACKET_ACK;
+                ack.seq = final_seq;
+
+                if (send_ack(server_socket, &ack, &retry_client,
+                             retry_client_len) != 0) {
+                    success = 0;
+                    break;
+                }
+
+                printf("Re-acknowledged final packet %" PRIu32 "\n",
+                       final_seq);
+            }
+
+            break;
+        }
     }
 
-    if (fclose(output) != 0) {
-        perror("fclose");
-        close(socket_fd);
-        return EXIT_FAILURE;
+    if (file != NULL) {
+        if (fclose(file) != 0) {
+            perror("fclose");
+            success = 0;
+        }
     }
-    close(socket_fd);
 
-    printf("Transfer complete. Received %zu bytes.\n", total_bytes);
-    return EXIT_SUCCESS;
+    close(server_socket);
+    printf("Server stopped.\n");
+
+    return success ? EXIT_SUCCESS : EXIT_FAILURE;
 }
