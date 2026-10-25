@@ -1,421 +1,213 @@
+#include "utils.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <netinet/in.h>
-#include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/time.h>
 #include <unistd.h>
-#include "protocol.h"
 
-#define OUTPUT_FILE "received_file.bin"
-#define FINAL_ACK_WAIT_SECONDS 3
+struct receive_slot {
+    struct packet packet;
+    int occupied;
+};
 
-static int send_ack(int sock, const Packet *ack,
-                    const struct sockaddr_in *client,
-                    socklen_t client_len)
+static int reply(int fd, const struct sockaddr_in *peer, uint64_t id,
+                 uint8_t type, uint32_t sequence)
 {
-    ssize_t sent = sendto(sock, ack, PACKET_HEADER_SIZE, 0,
-                          (const struct sockaddr *)client, client_len);
-
-    if (sent != (ssize_t)PACKET_HEADER_SIZE) {
-        perror("sendto ACK");
-        return -1;
-    }
-
-    return 0;
+    struct packet packet = {.type = type, .transfer_id = id, .sequence = sequence};
+    return send_packet(fd, &packet, peer);
 }
 
-int main(void)
+static void report_error(int fd, const struct sockaddr_in *peer, uint64_t id,
+                         const char *message)
 {
-    int server_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    struct packet packet = {.type = PACKET_ERROR, .transfer_id = id};
+    packet.length = (uint16_t)strlen(message);
+    memcpy(packet.payload, message, packet.length);
+    (void)send_packet(fd, &packet, peer);
+    fprintf(stderr, "%s\n", message);
+}
 
-    if (server_socket < 0) {
+int main(int argc, char *argv[])
+{
+    uint16_t port;
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <port> <output-file>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+    if (parse_port(argv[1], &port) != 0) {
+        fprintf(stderr, "Invalid port: %s\n", argv[1]);
+        return EXIT_FAILURE;
+    }
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
         perror("socket");
         return EXIT_FAILURE;
     }
-
-    struct sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(UDP_PORT);
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    if (bind(server_socket, (struct sockaddr *)&server_addr,
-             sizeof(server_addr)) < 0) {
+    struct sockaddr_in local = {0}, client = {0};
+    local.sin_family = AF_INET;
+    local.sin_port = htons(port);
+    local.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(fd, (struct sockaddr *)&local, sizeof(local)) != 0) {
         perror("bind");
-        close(server_socket);
+        close(fd);
         return EXIT_FAILURE;
     }
-
-    printf("Reliable UDP File Transfer Server\n");
-    printf("Listening on UDP port %d...\n", UDP_PORT);
+    printf("Listening on UDP port %u...\n", port);
     fflush(stdout);
 
-    FILE *file = NULL;
-    Packet packet;
-    Packet ack;
-
-    struct sockaddr_in transfer_client;
-    memset(&transfer_client, 0, sizeof(transfer_client));
-
-    uint64_t expected_size = 0;
-    uint64_t received_size = 0;
-    uint32_t expected_seq = 1;
-    uint32_t last_ack = 0;
-    uint32_t final_seq = 0;
-
-    unsigned char final_data[DATA_SIZE];
-    uint32_t final_data_len = 0;
-    uint32_t final_checksum = 0;
-
-    int started = 0;
-    int success = 0;
-
+    FILE *output = NULL;
+    char *temporary_path = NULL;
+    int active = 0, complete = 0, temporary_created = 0, status = EXIT_FAILURE;
+    uint64_t id = 0, expected_size = 0, written = 0;
+    uint64_t packet_count = 0, duplicates = 0, reordered = 0;
+    uint32_t expected_crc = 0, running_crc = UINT32_MAX, base = 0;
+    uint64_t last_activity = monotonic_ms(), finish_deadline = 0, started = 0;
+    struct receive_slot slots[WINDOW_SIZE] = {0};
     for (;;) {
-        memset(&packet, 0, sizeof(packet));
-
-        struct sockaddr_in client_addr;
-        memset(&client_addr, 0, sizeof(client_addr));
-        socklen_t client_len = sizeof(client_addr);
-
-        ssize_t n = recvfrom(server_socket, &packet, sizeof(packet), 0,
-                             (struct sockaddr *)&client_addr, &client_len);
-
-        if (n < 0) {
-            if (errno == EINTR)
-                continue;
-
-            perror("recvfrom");
+        uint64_t now = monotonic_ms();
+        if (complete && now >= finish_deadline) {
+            status = EXIT_SUCCESS;
             break;
         }
-
-        if (n < (ssize_t)PACKET_HEADER_SIZE ||
-            packet.magic != PACKET_MAGIC)
+        if (!complete && now - last_activity >= SESSION_TIMEOUT_MS) {
+            fprintf(stderr, "Timed out %s; transfer incomplete.\n",
+                    active ? "during transfer" : "waiting for START");
+            break;
+        }
+        struct packet packet;
+        struct sockaddr_in peer;
+        int result = receive_packet(fd, &packet, &peer, 100);
+        if (result < 0) {
+            perror("receive packet");
+            break;
+        }
+        if (!result)
             continue;
-
-        if (!started) {
-            if (packet.type != PACKET_START ||
-                packet.seq != 0 ||
-                n != (ssize_t)PACKET_HEADER_SIZE)
+        if (!active) {
+            if (packet.type != PACKET_START || packet.sequence != 0 ||
+                packet.length != START_PAYLOAD_SIZE)
                 continue;
-
-            expected_size = packet.total_size;
-            transfer_client = client_addr;
-
-            file = fopen(OUTPUT_FILE, "wb");
-            if (file == NULL) {
-                perror("fopen");
+            expected_size = get_u64(packet.payload);
+            packet_count = expected_size / PAYLOAD_SIZE + (expected_size % PAYLOAD_SIZE != 0);
+            if (packet_count > UINT32_MAX) {
+                report_error(fd, &peer, packet.transfer_id, "File exceeds protocol sequence range");
+                continue;
+            }
+            expected_crc = get_u32(packet.payload + 8);
+            client = peer;
+            id = packet.transfer_id;
+            size_t path_size = strlen(argv[2]) + sizeof(".part.XXXXXX");
+            temporary_path = malloc(path_size);
+            if (!temporary_path) {
+                report_error(fd, &client, id, "Cannot allocate output path");
                 break;
             }
-
-            started = 1;
-
-            printf("Client connected: %s\n",
-                   inet_ntoa(client_addr.sin_addr));
-            printf("Expected file size: %" PRIu64 " bytes\n",
-                   expected_size);
-
-            if (expected_size == 0) {
-                if (fflush(file) != 0) {
-                    perror("fflush");
-                    break;
-                }
-
-                if (fclose(file) != 0) {
-                    file = NULL;
-                    perror("fclose");
-                    break;
-                }
-
-                file = NULL;
-                success = 1;
-                printf("Empty file received successfully.\n");
-            }
-
-            memset(&ack, 0, sizeof(ack));
-            ack.magic = PACKET_MAGIC;
-            ack.type = PACKET_ACK;
-            ack.seq = 0;
-
-            if (send_ack(server_socket, &ack, &client_addr,
-                         client_len) != 0) {
-                success = 0;
+            snprintf(temporary_path, path_size, "%s.part.XXXXXX", argv[2]);
+            int output_fd = mkstemp(temporary_path);
+            if (output_fd < 0) {
+                report_error(fd, &client, id, "Cannot create temporary output");
                 break;
             }
-
-                        if (expected_size == 0) {
-                struct timeval timeout;
-                timeout.tv_sec = FINAL_ACK_WAIT_SECONDS;
-                timeout.tv_usec = 0;
-
-                if (setsockopt(server_socket, SOL_SOCKET, SO_RCVTIMEO,
-                               &timeout, sizeof(timeout)) < 0) {
-                    perror("setsockopt");
-                    success = 0;
-                    break;
-                }
-
-                for (;;) {
-                    Packet retry_packet;
-                    struct sockaddr_in retry_client;
-                    socklen_t retry_client_len = sizeof(retry_client);
-
-                    ssize_t retry_n = recvfrom(
-                        server_socket, &retry_packet,
-                        sizeof(retry_packet), 0,
-                        (struct sockaddr *)&retry_client,
-                        &retry_client_len
-                    );
-
-                    if (retry_n < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK)
-                            break;
-
-                        if (errno == EINTR)
-                            continue;
-
-                        perror("recvfrom empty-file retry");
-                        success = 0;
-                        break;
-                    }
-
-                    if (retry_client.sin_addr.s_addr !=
-                            transfer_client.sin_addr.s_addr ||
-                        retry_client.sin_port != transfer_client.sin_port)
-                        continue;
-
-                    if (retry_n != (ssize_t)PACKET_HEADER_SIZE ||
-                        retry_packet.magic != PACKET_MAGIC ||
-                        retry_packet.type != PACKET_START ||
-                        retry_packet.seq != 0 ||
-                        retry_packet.total_size != 0)
-                        continue;
-
-                    memset(&ack, 0, sizeof(ack));
-                    ack.magic = PACKET_MAGIC;
-                    ack.type = PACKET_ACK;
-                    ack.seq = 0;
-
-                    if (send_ack(server_socket, &ack, &retry_client,
-                                 retry_client_len) != 0) {
-                        success = 0;
-                        break;
-                    }
-
-                    printf("Re-acknowledged empty-file START packet.\n");
-                }
-
+            temporary_created = 1;
+            output = fdopen(output_fd, "wb");
+            if (!output) {
+                close(output_fd);
+                report_error(fd, &client, id, "Cannot open temporary output");
                 break;
             }
-
+            active = 1;
+            started = last_activity = monotonic_ms();
+            if (reply(fd, &client, id, PACKET_START_ACK, 0) != 0) {
+                perror("send START_ACK");
+                break;
+            }
             continue;
         }
-
-        if (client_addr.sin_addr.s_addr !=
-                transfer_client.sin_addr.s_addr ||
-            client_addr.sin_port != transfer_client.sin_port)
+        if (!same_peer(&peer, &client) || packet.transfer_id != id)
             continue;
-
-        if (packet.type == PACKET_START &&
-            packet.seq == 0 &&
-            n == (ssize_t)PACKET_HEADER_SIZE &&
-            packet.total_size == expected_size) {
-            memset(&ack, 0, sizeof(ack));
-            ack.magic = PACKET_MAGIC;
-            ack.type = PACKET_ACK;
-            ack.seq = 0;
-
-            if (send_ack(server_socket, &ack, &client_addr,
-                         client_len) != 0)
+        if (packet.type == PACKET_START && packet.sequence == 0 &&
+            packet.length == START_PAYLOAD_SIZE &&
+            get_u64(packet.payload) == expected_size &&
+            get_u32(packet.payload + 8) == expected_crc) {
+            if (reply(fd, &client, id, PACKET_START_ACK, 0) != 0)
                 break;
-
             continue;
         }
-
-        if (packet.type != PACKET_DATA ||
-            packet.data_len == 0 ||
-            packet.data_len > DATA_SIZE ||
-            n != (ssize_t)(PACKET_HEADER_SIZE + packet.data_len))
-            continue;
-
-        if (payload_checksum(packet.data, packet.data_len) !=
-            packet.checksum) {
-            fprintf(stderr, "Checksum error in packet %" PRIu32 "\n",
-                    packet.seq);
-            continue;
-        }
-
-        if (packet.seq == expected_seq) {
-            if (received_size + packet.data_len > expected_size) {
-                fprintf(stderr, "Unexpected file size.\n");
-                break;
+        if (packet.type == PACKET_DATA && packet.sequence < packet_count) {
+            uint64_t remaining = expected_size - (uint64_t)packet.sequence * PAYLOAD_SIZE;
+            uint16_t expected_length = (uint16_t)(remaining < PAYLOAD_SIZE ? remaining : PAYLOAD_SIZE);
+            if (packet.length != expected_length)
+                continue;
+            if (packet.sequence < base) {
+                ++duplicates;
+                if (reply(fd, &client, id, PACKET_ACK, packet.sequence) != 0)
+                    break;
+                continue;
             }
-
-            if (received_size + packet.data_len == expected_size) {
-                /*
-                 * Save the final packet so a retransmission can be
-                 * validated after the file has been closed.
-                 */
-                final_seq = packet.seq;
-                final_data_len = packet.data_len;
-                final_checksum = packet.checksum;
-                memcpy(final_data, packet.data, packet.data_len);
-
-                if (fwrite(packet.data, 1, packet.data_len, file) !=
-                    packet.data_len) {
-                    perror("fwrite");
-                    break;
-                }
-
-                received_size += packet.data_len;
-                last_ack = packet.seq;
-                expected_seq++;
-
-                if (fflush(file) != 0) {
-                    perror("fflush");
-                    break;
-                }
-
-                if (fclose(file) != 0) {
-                    file = NULL;
-                    perror("fclose");
-                    break;
-                }
-
-                file = NULL;
-                success = 1;
-
-                printf("Received final packet %" PRIu32
-                       " (%" PRIu32 " bytes)\n",
-                       final_seq, final_data_len);
-
-                printf("File received successfully: %s\n", OUTPUT_FILE);
+            if (complete || packet.sequence - base >= WINDOW_SIZE)
+                continue;
+            struct receive_slot *slot = &slots[packet.sequence % WINDOW_SIZE];
+            if (!slot->occupied) {
+                slot->packet = packet;
+                slot->occupied = 1;
+                if (packet.sequence != base)
+                    ++reordered;
             } else {
-                size_t written = fwrite(
-                    packet.data, 1, packet.data_len, file
-                );
-
-                if (written != packet.data_len) {
-                    perror("fwrite");
-                    break;
-                }
-
-                received_size += packet.data_len;
-                last_ack = packet.seq;
-                expected_seq++;
-
-                printf("Received packet %" PRIu32
-                       " (%" PRIu32 " bytes; %" PRIu64 "/%" PRIu64 ")\n",
-                       packet.seq, packet.data_len,
-                       received_size, expected_size);
+                ++duplicates;
             }
-        } else if (packet.seq < expected_seq) {
-            /*
-             * Duplicate packet: don't write it twice.
-             * Re-ACK the most recent in-order packet.
-             */
-        } else {
-            /* Out-of-order packet: acknowledge the last in-order packet. */
+            /* ACK only after the in-order prefix has been written successfully. */
+            while (base < packet_count && slots[base % WINDOW_SIZE].occupied) {
+                struct receive_slot *head = &slots[base % WINDOW_SIZE];
+                if (fwrite(head->packet.payload, 1, head->packet.length, output) != head->packet.length) {
+                    report_error(fd, &client, id, "Cannot write output");
+                    goto cleanup;
+                }
+                running_crc = crc32_update(running_crc, head->packet.payload, head->packet.length);
+                written += head->packet.length;
+                head->occupied = 0;
+                ++base;
+            }
+            last_activity = monotonic_ms();
+            if (reply(fd, &client, id, PACKET_ACK, packet.sequence) != 0)
+                break;
+            continue;
         }
-
-        memset(&ack, 0, sizeof(ack));
-        ack.magic = PACKET_MAGIC;
-        ack.type = PACKET_ACK;
-        ack.seq = last_ack;
-
-        if (success && received_size == expected_size) {
-            ack.seq = final_seq;
-        }
-
-        if (send_ack(server_socket, &ack, &client_addr,
-                     client_len) != 0) {
-            success = 0;
-            break;
-        }
-
-        if (success && received_size == expected_size) {
-            struct timeval timeout;
-            timeout.tv_sec = FINAL_ACK_WAIT_SECONDS;
-            timeout.tv_usec = 0;
-
-            if (setsockopt(server_socket, SOL_SOCKET, SO_RCVTIMEO,
-                           &timeout, sizeof(timeout)) < 0) {
-                perror("setsockopt");
-                success = 0;
+        if (packet.type != PACKET_FIN || packet.length != 0 || packet.sequence != packet_count)
+            continue;
+        if (!complete) {
+            if (base != packet_count)
+                continue;
+            if (written != expected_size || (running_crc ^ UINT32_MAX) != expected_crc) {
+                report_error(fd, &client, id, "File size or CRC32 mismatch");
                 break;
             }
-
-            for (;;) {
-                Packet retry_packet;
-                struct sockaddr_in retry_client;
-                socklen_t retry_client_len = sizeof(retry_client);
-
-                ssize_t retry_n = recvfrom(
-                    server_socket, &retry_packet, sizeof(retry_packet), 0,
-                    (struct sockaddr *)&retry_client, &retry_client_len
-                );
-
-                if (retry_n < 0) {
-                    if (errno == EAGAIN || errno == EWOULDBLOCK)
-                        break;
-
-                    if (errno == EINTR)
-                        continue;
-
-                    perror("recvfrom final retry");
-                    success = 0;
-                    break;
-                }
-
-                if (retry_client.sin_addr.s_addr !=
-                        transfer_client.sin_addr.s_addr ||
-                    retry_client.sin_port != transfer_client.sin_port)
-                    continue;
-
-                if (retry_n < (ssize_t)PACKET_HEADER_SIZE ||
-                    retry_packet.magic != PACKET_MAGIC ||
-                    retry_packet.type != PACKET_DATA ||
-                    retry_packet.seq != final_seq ||
-                    retry_packet.data_len != final_data_len ||
-                    retry_packet.checksum != final_checksum ||
-                    retry_n != (ssize_t)(PACKET_HEADER_SIZE +
-                                         retry_packet.data_len) ||
-                    memcmp(retry_packet.data, final_data,
-                           final_data_len) != 0)
-                    continue;
-
-                memset(&ack, 0, sizeof(ack));
-                ack.magic = PACKET_MAGIC;
-                ack.type = PACKET_ACK;
-                ack.seq = final_seq;
-
-                if (send_ack(server_socket, &ack, &retry_client,
-                             retry_client_len) != 0) {
-                    success = 0;
-                    break;
-                }
-
-                printf("Re-acknowledged final packet %" PRIu32 "\n",
-                       final_seq);
+            int close_result = fclose(output);
+            output = NULL;
+            if (close_result != 0 || rename(temporary_path, argv[2]) != 0) {
+                report_error(fd, &client, id, "Cannot finalize output");
+                break;
             }
-
+            complete = 1;
+            finish_deadline = monotonic_ms() + FIN_LINGER_MS;
+            printf("Transfer complete: bytes=%" PRIu64 " crc32=%08" PRIx32
+                   " duplicates=%" PRIu64 " out_of_order=%" PRIu64 " seconds=%.3f\n",
+                   written, expected_crc, duplicates, reordered,
+                   (double)(monotonic_ms() - started) / 1000.0);
+            fflush(stdout);
+        }
+        /* Re-ACK duplicate FINs if FIN_ACK was lost; never rewrite the file. */
+        if (reply(fd, &client, id, PACKET_FIN_ACK, (uint32_t)packet_count) != 0)
             break;
-        }
     }
-
-    if (file != NULL) {
-        if (fclose(file) != 0) {
-            perror("fclose");
-            success = 0;
-        }
+cleanup:
+    if (output)
+        fclose(output);
+    if (temporary_path) {
+        if (temporary_created && !complete)
+            unlink(temporary_path);
+        free(temporary_path);
     }
-
-    close(server_socket);
-    printf("Server stopped.\n");
-
-    return success ? EXIT_SUCCESS : EXIT_FAILURE;
+    close(fd);
+    return status;
 }
