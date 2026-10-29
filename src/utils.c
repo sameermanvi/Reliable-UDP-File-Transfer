@@ -106,14 +106,19 @@ int parse_port(const char *text, uint16_t *port)
     return 0;
 }
 
-uint64_t monotonic_ms(void)
+uint64_t monotonic_ns(void)
 {
     struct timespec now;
     if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
         perror("clock_gettime");
         _exit(1);
     }
-    return (uint64_t)now.tv_sec * 1000u + (uint64_t)now.tv_nsec / 1000000u;
+    return (uint64_t)now.tv_sec * UINT64_C(1000000000) + (uint64_t)now.tv_nsec;
+}
+
+uint64_t monotonic_ms(void)
+{
+    return monotonic_ns() / UINT64_C(1000000);
 }
 
 int random_transfer_id(uint64_t *id)
