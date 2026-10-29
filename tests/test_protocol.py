@@ -3,6 +3,8 @@
 import concurrent.futures
 import hashlib
 import heapq
+import json
+import os
 from pathlib import Path
 import select
 import socket
@@ -125,9 +127,25 @@ class ProtocolTests(unittest.TestCase):
             try:
                 if proxy:
                     proxy.start()
+                progress = Path(directory) / 'progress.jsonl'
+                before = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
                 client = subprocess.run([str(CLIENT), '127.0.0.1', str(proxy.port if proxy else number), str(source)],
-                                        capture_output=True, text=True, timeout=20)
+                                        capture_output=True, text=True, timeout=20,
+                                        env={**os.environ, 'RUDP_PROGRESS_LOG': str(progress)})
+                after = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
                 self.assertEqual(client.returncode, 0, client.stdout + client.stderr)
+                events = [json.loads(line) for line in progress.read_text().splitlines()]
+                self.assertEqual(bool(events), bool(size))
+                last_base, last_stamp = 0, before
+                for event in events:
+                    self.assertEqual(event['event'], 'ack_progress')
+                    self.assertGreater(event['base'], last_base)
+                    self.assertGreaterEqual(event['monotonic_ns'], last_stamp)
+                    self.assertLessEqual(event['monotonic_ns'], after)
+                    self.assertEqual(event['bytes'], min(event['base'] * 1024, size))
+                    last_base, last_stamp = event['base'], event['monotonic_ns']
+                if events:
+                    self.assertEqual(events[-1]['bytes'], size)
                 stdout, stderr = server.communicate(timeout=9)
                 self.assertEqual(server.returncode, 0, stdout + stderr)
                 self.assertEqual(target.read_bytes(), content)
@@ -160,6 +178,17 @@ class ProtocolTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
         result = subprocess.run([str(CLIENT), 'invalid', '9000', '/missing'], capture_output=True, timeout=2)
         self.assertIn(b'Invalid IPv4', result.stderr)
+
+    def test_progress_log_never_overwrites_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'input'
+            source.write_bytes(b'keep this input')
+            result = subprocess.run([str(CLIENT), '127.0.0.1', '9000', str(source)],
+                                    capture_output=True, timeout=2,
+                                    env={**os.environ, 'RUDP_PROGRESS_LOG': str(source)})
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(b'create progress log', result.stderr)
+            self.assertEqual(source.read_bytes(), b'keep this input')
 
     def test_receiver_validation_and_session_isolation(self):
         with tempfile.TemporaryDirectory() as directory:

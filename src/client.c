@@ -63,7 +63,7 @@ static int exchange(int fd, const struct sockaddr_in *server,
 
 static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                      uint64_t id, uint32_t packet_count, uint64_t file_size,
-                     struct statistics *stats)
+                     struct statistics *stats, FILE *progress)
 {
     struct send_slot slots[WINDOW_SIZE] = {0};
     uint32_t base = 0, next = 0;
@@ -132,8 +132,20 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                 ack.sequence >= base && ack.sequence < next)
                 slots[ack.sequence % WINDOW_SIZE].acknowledged = 1;
         }
+        uint32_t previous_base = base;
         while (base < next && slots[base % WINDOW_SIZE].acknowledged)
             ++base;
+        if (progress && base != previous_base) {
+            uint64_t bytes = (uint64_t)base * PAYLOAD_SIZE;
+            if (bytes > file_size)
+                bytes = file_size;
+            if (fprintf(progress, "{\"event\":\"ack_progress\",\"monotonic_ns\":%" PRIu64
+                        ",\"base\":%" PRIu32 ",\"bytes\":%" PRIu64 "}\n",
+                        monotonic_ns(), base, bytes) < 0 || fflush(progress) != 0) {
+                perror("write progress log");
+                return -1;
+            }
+        }
     }
     /* Detect append/read failures after the metadata pass. CRC catches other changes. */
     if (fgetc(file) != EOF || ferror(file)) {
@@ -168,6 +180,16 @@ int main(int argc, char *argv[])
     }
     int status = EXIT_FAILURE;
     int fd = -1;
+    FILE *progress = NULL;
+    const char *progress_path = getenv("RUDP_PROGRESS_LOG");
+    if (progress_path && *progress_path) {
+        /* Never truncate an input or previous experiment by accident. */
+        progress = fopen(progress_path, "wx");
+        if (!progress) {
+            perror("create progress log");
+            goto cleanup;
+        }
+    }
     uint64_t size, id;
     uint32_t checksum;
     if (file_metadata(file, &size, &checksum) != 0) {
@@ -195,7 +217,7 @@ int main(int argc, char *argv[])
     put_u64(control.payload, size);
     put_u32(control.payload + 8, checksum);
     if (exchange(fd, &server, &control, PACKET_START_ACK, &stats) != 0 ||
-        send_file(fd, file, &server, id, (uint32_t)count, size, &stats) != 0)
+        send_file(fd, file, &server, id, (uint32_t)count, size, &stats, progress) != 0)
         goto cleanup;
     control.type = PACKET_FIN;
     control.sequence = (uint32_t)count;
@@ -210,6 +232,10 @@ int main(int argc, char *argv[])
            stats.control_retries, seconds, seconds > 0 ? (double)size * 8 / seconds / 1e6 : 0);
     status = EXIT_SUCCESS;
 cleanup:
+    if (progress && fclose(progress) != 0) {
+        perror("close progress log");
+        status = EXIT_FAILURE;
+    }
     if (fd >= 0)
         close(fd);
     fclose(file);
