@@ -1,132 +1,187 @@
-"""OpenFlow 1.3 diamond: port-status failover, with barrier-confirmed readiness.
+"""Proactive OpenFlow 1.3 routes with port-status-driven path recovery.
 
-OS-Ken is the maintained Ryu fork and uses the same event-driven controller API.
-RUDP_MODE=static pins the upper branch; failover chooses an available branch.
+Run with osken-manager --ofp-tcp-listen-port 6653 controller/failover.py.
+RUDP_MODE selects static or failover; RUDP_EVENT_LOG selects the JSONL log.
 """
+
+import datetime
 import json
 import os
+from pathlib import Path
+import sys
 import time
 
-from os_ken.base import app_manager
-from os_ken.controller import ofp_event
-from os_ken.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER, set_ev_cls
-from os_ken.ofproto import ofproto_v1_3
+try:
+    from os_ken.base import app_manager
+    from os_ken.controller import ofp_event
+    from os_ken.controller.handler import (
+        CONFIG_DISPATCHER, DEAD_DISPATCHER, MAIN_DISPATCHER, set_ev_cls,
+    )
+    from os_ken.ofproto import ofproto_v1_3
+    AppBase = app_manager.OSKenApp
+except ImportError:
+    from ryu.base import app_manager
+    from ryu.controller import ofp_event
+    from ryu.controller.handler import (
+        CONFIG_DISPATCHER, DEAD_DISPATCHER, MAIN_DISPATCHER, set_ev_cls,
+    )
+    from ryu.ofproto import ofproto_v1_3
+    AppBase = app_manager.RyuApp
 
-BRANCHES = {'upper': ((1, 2), (2, 1), (2, 2), (4, 1)),
-            'lower': ((1, 3), (3, 1), (3, 2), (4, 2))}
+# The manager may load this file by path without adding the repository root.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from controller.routing import PathPolicy, SWITCHES, forwarding_rules
 
 
-class FailoverController(app_manager.OSKenApp):
+COOKIE = 0x5255445000000001
+
+
+class FailoverController(AppBase):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mode = os.environ.get('RUDP_MODE', 'failover')
-        if self.mode not in ('static', 'failover'):
-            raise ValueError('RUDP_MODE must be static or failover')
-        self.switches, self.ports, self.pending = {}, {}, set()
+        self.policy = PathPolicy(os.environ.get("RUDP_MODE", "failover"))
+        self.datapaths = {}
         self.discovered = set()
+        self.started = False
         self.path = None
         self.generation = 0
-        self.cause = 'startup'
-        self.failed = False
-        filename = os.environ.get('RUDP_EVENT_LOG')
-        self.log = open(filename, 'a', buffering=1) if filename else None
+        self.pending = {}
+        self.failed_generation = False
+        self.cause = "startup"
+        event_path = os.environ.get("RUDP_EVENT_LOG")
+        self.event_file = open(event_path, "a", buffering=1) if event_path else None
+        self._event("controller_started", mode=self.policy.mode)
 
-    def record(self, event, **fields):
-        line = json.dumps(dict(event=event, monotonic_ns=time.monotonic_ns(), **fields))
+    def _event(self, event, **fields):
+        record = dict(event=event, monotonic_ns=time.clock_gettime_ns(time.CLOCK_MONOTONIC),
+                      wall_time=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                      **fields)
+        line = json.dumps(record, sort_keys=True)
         self.logger.info(line)
-        if self.log:
-            self.log.write(line + '\n')
-
-    @staticmethod
-    def up(dp, port):
-        return not (port.state & dp.ofproto.OFPPS_LINK_DOWN or port.config & dp.ofproto.OFPPC_PORT_DOWN)
+        if self.event_file:
+            self.event_file.write(line + "\n")
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def connect(self, event):
+    def features(self, event):
         dp = event.msg.datapath
-        if dp.id not in (1, 2, 3, 4):
+        if dp.id not in SWITCHES:
+            self._event("unexpected_switch", dpid=dp.id)
             return
-        self.switches[dp.id] = dp
+        self.datapaths[dp.id] = dp
+        self.policy.connected.add(dp.id)
         self.discovered.discard(dp.id)
-        p, of = dp.ofproto_parser, dp.ofproto
-        dp.send_msg(p.OFPFlowMod(datapath=dp, command=of.OFPFC_DELETE,
-                                out_port=of.OFPP_ANY, out_group=of.OFPG_ANY,
-                                table_id=of.OFPTT_ALL, match=p.OFPMatch()))
-        dp.send_msg(p.OFPPortDescStatsRequest(dp, 0))
+        parser, ofp = dp.ofproto_parser, dp.ofproto
+        # This is a dedicated lab controller. Clear stale flows on reconnect,
+        # then keep table-miss as drop rather than learning/flooding the loop.
+        dp.send_msg(parser.OFPFlowMod(
+            datapath=dp, command=ofp.OFPFC_DELETE, table_id=ofp.OFPTT_ALL,
+            out_port=ofp.OFPP_ANY, out_group=ofp.OFPG_ANY,
+            match=parser.OFPMatch()))
+        dp.send_msg(parser.OFPFlowMod(
+            datapath=dp, cookie=COOKIE, priority=0,
+            match=parser.OFPMatch(), instructions=[]))
+        dp.send_msg(parser.OFPPortDescStatsRequest(dp, 0))
+        self._event("switch_connected", dpid=dp.id)
+
+    @staticmethod
+    def _port_up(dp, port):
+        ofp = dp.ofproto
+        return not (port.state & ofp.OFPPS_LINK_DOWN
+                    or port.config & ofp.OFPPC_PORT_DOWN)
 
     @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
-    def descriptions(self, event):
+    def port_description(self, event):
         msg, dp = event.msg, event.msg.datapath
+        if dp.id not in self.datapaths:
+            return
         for port in msg.body:
-            self.ports[dp.id, port.port_no] = self.up(dp, port)
-        if not msg.flags & dp.ofproto.OFPMPF_REPLY_MORE:
-            self.discovered.add(dp.id)
-            if self.discovered == {1, 2, 3, 4}:
-                self.install('startup', force=True)
+            self.policy.ports[(dp.id, port.port_no)] = self._port_up(dp, port)
+        if msg.flags & dp.ofproto.OFPMPF_REPLY_MORE:
+            return
+        self.discovered.add(dp.id)
+        self._reconcile("startup" if not self.started else "switch_up", force=True)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def port_status(self, event):
         msg, dp = event.msg, event.msg.datapath
-        key = dp.id, msg.desc.port_no
-        up = msg.reason != dp.ofproto.OFPPR_DELETE and self.up(dp, msg.desc)
-        if self.ports.get(key) == up:
+        if dp.id not in self.datapaths:
             return
-        self.ports[key] = up
-        cause = 'link_up' if up else 'link_down'
-        self.record(cause, dpid=dp.id, port=msg.desc.port_no)
-        if self.discovered == {1, 2, 3, 4}:
-            self.install(cause)
+        key = (dp.id, msg.desc.port_no)
+        up = msg.reason != dp.ofproto.OFPPR_DELETE and self._port_up(dp, msg.desc)
+        previous = self.policy.ports.get(key)
+        self.policy.ports[key] = up
+        if previous == up:
+            return
+        cause = "link_up" if up else "link_down"
+        self._event(cause, dpid=dp.id, port=msg.desc.port_no)
+        self._reconcile(cause)
 
     @set_ev_cls(ofp_event.EventOFPStateChange, DEAD_DISPATCHER)
-    def disconnect(self, event):
+    def disconnected(self, event):
         dp = event.datapath
-        if self.switches.get(dp.id) is dp:
-            del self.switches[dp.id]
-            self.discovered.discard(dp.id)
-            self.install('switch_down', force=True)
-
-    def install(self, cause, force=False):
-        available = [name for name, ports in BRANCHES.items()
-                     if all(dpid in self.switches and self.ports.get((dpid, port), False)
-                            for dpid, port in ports + ((1, 1), (4, 3)))]
-        path = 'upper' if self.mode == 'static' else (self.path if self.path in available else next(iter(available), None))
-        if path == self.path and not force:
+        if self.datapaths.get(dp.id) is not dp:
             return
-        self.path, self.cause = path, cause
+        del self.datapaths[dp.id]
+        self.policy.connected.discard(dp.id)
+        self.discovered.discard(dp.id)
+        self._event("switch_down", dpid=dp.id)
+        self._reconcile("switch_down", force=True)
+
+    def _reconcile(self, cause, force=False):
+        if not self.started:
+            if self.discovered != SWITCHES:
+                return
+            self.started = True
+        path = self.policy.choose(self.path)
+        if not force and path == self.path:
+            return
+        self.path = path
         self.generation += 1
+        self.cause = cause
         self.pending.clear()
-        self.failed = False
-        first = {'upper': 2, 'lower': 3, None: None}[path]
-        last = {'upper': 1, 'lower': 2, None: None}[path]
-        pairs = {1: ((1, first), (2, 1), (3, 1)), 2: ((1, 2), (2, 1)),
-                 3: ((1, 2), (2, 1)), 4: ((1, 3), (2, 3), (3, last))}
-        for dpid, dp in self.switches.items():
-            p, of = dp.ofproto_parser, dp.ofproto
-            for source, destination in pairs[dpid]:
-                for ether_type in (0x0800, 0x0806):
-                    actions = [p.OFPActionOutput(destination)] if destination else []
-                    dp.send_msg(p.OFPFlowMod(datapath=dp, priority=100,
-                                match=p.OFPMatch(in_port=source, eth_type=ether_type),
-                                instructions=[p.OFPInstructionActions(of.OFPIT_APPLY_ACTIONS, actions)]))
-            barrier = p.OFPBarrierRequest(dp)
+        self.failed_generation = False
+        self._event("route_installing", path=path, cause=cause,
+                    generation=self.generation)
+        rules = forwarding_rules(path)
+        # Each ADD replaces the previous identical match/priority atomically
+        # within a switch. During an update, asymmetrical forward/reverse paths
+        # still reach their host: branch ingress never sends into another branch.
+        for dpid, dp in sorted(self.datapaths.items()):
+            parser, ofp = dp.ofproto_parser, dp.ofproto
+            for rule in rules[dpid]:
+                actions = ([] if rule.out_port is None else
+                           [parser.OFPActionOutput(rule.out_port)])
+                instructions = [parser.OFPInstructionActions(
+                    ofp.OFPIT_APPLY_ACTIONS, actions)]
+                dp.send_msg(parser.OFPFlowMod(
+                    datapath=dp, cookie=COOKIE, priority=100,
+                    match=parser.OFPMatch(in_port=rule.in_port,
+                                          eth_type=rule.eth_type),
+                    instructions=instructions))
+            barrier = parser.OFPBarrierRequest(dp)
             dp.set_xid(barrier)
-            self.pending.add((dpid, barrier.xid))
+            self.pending[(dpid, barrier.xid)] = self.generation
             dp.send_msg(barrier)
 
     @set_ev_cls(ofp_event.EventOFPBarrierReply, MAIN_DISPATCHER)
-    def ready(self, event):
-        key = event.msg.datapath.id, event.msg.xid
-        if key not in self.pending:
+    def barrier_reply(self, event):
+        key = (event.msg.datapath.id, event.msg.xid)
+        generation = self.pending.pop(key, None)
+        if generation != self.generation or self.pending or self.failed_generation:
             return
-        self.pending.remove(key)
-        if not self.pending and not self.failed:
-            self.record('route_ready' if self.path else 'route_unavailable',
-                        path=self.path, cause=self.cause, generation=self.generation)
+        self._event("route_ready" if self.path else "route_unavailable",
+                    path=self.path, cause=self.cause, generation=self.generation)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, [CONFIG_DISPATCHER, MAIN_DISPATCHER])
-    def error(self, event):
-        self.failed = True
-        self.record('openflow_error', dpid=event.msg.datapath.id,
-                    error_type=event.msg.type, code=event.msg.code)
+    def openflow_error(self, event):
+        msg = event.msg
+        self.failed_generation = True
+        self._event("openflow_error", dpid=msg.datapath.id,
+                    error_type=msg.type, code=msg.code, xid=msg.xid)
+
+    def close(self):
+        if self.event_file:
+            self.event_file.close()
+        super().close()

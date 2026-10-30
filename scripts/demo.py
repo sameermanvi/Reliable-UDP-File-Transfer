@@ -27,10 +27,13 @@ def progress(path):
     if not path.exists():
         return []
     rows = []
-    for line in path.read_text().splitlines()[1:]:
-        fields = line.split()
-        if len(fields) == 2:
-            rows.append((int(fields[0]) / 1e9, int(fields[1])))
+    for line in path.read_text().splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue  # The client may still be appending this line.
+        if event.get('event') == 'ack_progress':
+            rows.append((event['monotonic_ns'] / 1e9, event['bytes']))
     return rows
 
 
@@ -47,7 +50,7 @@ def wait_ready(log, controller, timeout=20):
 
 def transfer(net, directory, source, scenario, mode):
     h1, h2 = net.get('h1', 'h2')
-    output, trace = directory / 'received.bin', directory / 'progress.tsv'
+    output, trace = directory / 'received.bin', directory / 'progress.jsonl'
     server_log = open(directory / 'server.log', 'w')
     client_log = open(directory / 'client.log', 'w')
     server = h2.popen([str(ROOT / 'src/server'), '9000', str(output)],
@@ -91,10 +94,11 @@ def transfer(net, directory, source, scenario, mode):
     digest = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
     if digest(source) != digest(output):
         raise RuntimeError('SHA256 mismatch')
-    stats = dict(re.findall(r'\b(bytes|retransmissions|seconds)=([0-9.]+)',
+    stats = dict(re.findall(r'\b(bytes|retransmits|control_retransmits|seconds)=([0-9.]+)',
                             (directory / 'client.log').read_text()))
-    if set(stats) != {'bytes', 'retransmissions', 'seconds'}:
+    if set(stats) != {'bytes', 'retransmits', 'control_retransmits', 'seconds'}:
         raise RuntimeError('missing client statistics')
+    stats['retransmissions'] = str(int(stats.pop('retransmits')) + int(stats.pop('control_retransmits')))
     if scenario == 'failure' and failure is None:
         raise RuntimeError('transfer completed before link failure was triggered')
     ready = [e for e in events(directory / 'events.jsonl')

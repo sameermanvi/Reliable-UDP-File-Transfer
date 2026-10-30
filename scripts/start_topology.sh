@@ -1,4 +1,5 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-exec "${SDN_BIN:-/opt/sdn/bin}/python" mininet/topology.py "$@"
+if [ -d .venv/bin ]; then default_sdn_bin=.venv/bin; else default_sdn_bin=/opt/sdn/bin; fi
+exec "${SDN_BIN:-$default_sdn_bin}/python" mininet/topology.py "$@"

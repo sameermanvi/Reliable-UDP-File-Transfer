@@ -3,6 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import os
+import json
 import select
 import socket
 import struct
@@ -15,20 +16,22 @@ import zlib
 ROOT = Path(__file__).resolve().parents[1]
 CLIENT, SERVER = ROOT / 'src/client', ROOT / 'src/server'
 START, START_ACK, DATA, ACK, FIN, FIN_ACK, ERROR = range(1, 8)
-HEADER = struct.Struct('!IBBHII')
+HEADER = struct.Struct('!IBBHQII')
+TRANSFER_ID = 42
 
 
 def packet(kind, seq=0, data=b''):
-    wire = HEADER.pack(0x52554450, 1, kind, len(data), seq, 0) + data
-    return wire[:12] + struct.pack('!I', zlib.crc32(wire)) + data
+    wire = HEADER.pack(0x52554450, 1, kind, len(data), TRANSFER_ID, seq, 0) + data
+    return wire[:20] + struct.pack('!I', zlib.crc32(wire)) + data
 
 
 def receive(sock):
+    global TRANSFER_ID
     wire, peer = sock.recvfrom(2048)
-    magic, version, kind, length, seq, checksum = HEADER.unpack(wire[:16])
-    assert magic == 0x52554450 and version == 1 and len(wire) == 16 + length
-    assert zlib.crc32(wire[:12] + b'\0' * 4 + wire[16:]) == checksum
-    return kind, seq, wire[16:], peer
+    magic, version, kind, length, TRANSFER_ID, seq, checksum = HEADER.unpack(wire[:24])
+    assert magic == 0x52554450 and version == 1 and len(wire) == 24 + length
+    assert zlib.crc32(wire[:20] + b'\0' * 4 + wire[24:]) == checksum
+    return kind, seq, wire[24:], peer
 
 
 def udp():
@@ -73,8 +76,8 @@ class LocalTests(unittest.TestCase):
                     self.assertEqual(receiver.returncode, 0, stderr)
                     self.assertEqual(output.read_bytes(), data)
                     self.assertIn('bytes=%d ' % size, result.stdout)
-                    rows = [tuple(map(int, line.split())) for line in trace.read_text().splitlines()[1:]]
-                    self.assertEqual(rows[-1][1], size)
+                    rows = [(e['monotonic_ns'], e['bytes']) for e in map(json.loads, trace.read_text().splitlines())]
+                    self.assertEqual(rows[-1][1] if rows else 0, size)
                     self.assertTrue(all(a[0] <= b[0] and a[1] < b[1] for a, b in zip(rows, rows[1:])))
                 finally:
                     stop(receiver)
@@ -133,7 +136,8 @@ class LocalTests(unittest.TestCase):
                 stdout, stderr = client.communicate(timeout=3)
                 self.assertEqual(client.returncode, 0, stderr)
                 self.assertEqual(counts, {0: 1, 1: 2, 2: 1, 3: 1})
-                self.assertIn('retransmissions=2 ', stdout)
+                self.assertIn('retransmits=1 ', stdout)
+                self.assertIn('control_retransmits=1 ', stdout)
             finally:
                 stop(client)
 
@@ -154,17 +158,20 @@ class LocalTests(unittest.TestCase):
             finally:
                 stop(receiver)
 
-    def test_existing_output_is_preserved(self):
+    def test_existing_output_replaced_only_after_verification(self):
         with tempfile.TemporaryDirectory() as folder, udp() as sock:
             output = Path(folder)/'output'
             output.write_bytes(b'keep me')
             receiver, address = server(output)
             try:
                 sock.sendto(packet(START, data=struct.pack('!QI', 0, 0)), address)
-                self.assertEqual(receive(sock)[0], ERROR)
-                receiver.communicate(timeout=3)
-                self.assertNotEqual(receiver.returncode, 0)
+                self.assertEqual(receive(sock)[0], START_ACK)
                 self.assertEqual(output.read_bytes(), b'keep me')
+                sock.sendto(packet(FIN, 0), address)
+                self.assertEqual(receive(sock)[0], FIN_ACK)
+                receiver.communicate(timeout=12)
+                self.assertEqual(receiver.returncode, 0)
+                self.assertEqual(output.read_bytes(), b'')
             finally:
                 stop(receiver)
 

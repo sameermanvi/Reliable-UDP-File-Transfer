@@ -1,167 +1,151 @@
-# Reliable UDP File Transfer with SDN
+# UE25CS243A Reliable UDP File Transfer
 
-A student networking project: a pure C UDP uploader adds Selective Repeat
-reliability, and a real OpenFlow controller reroutes its packets when a Mininet
-link fails. This is a custom file-transfer protocol, not standard FTP.
+A C / POSIX sockets file uploader with application-level reliability and an SDN
+failure-recovery lab. Selective Repeat keeps up to 32 DATA packets in flight;
+individual ACKs, CRC-32, timeouts and bounded retransmissions recover loss and
+reordering. An OS-Ken controller routes the same transfer through alternate
+paths in a Mininet diamond when a link fails.
 
-## Localhost
+This is a custom reliable UDP protocol. It does not interoperate with FTP, FTPS,
+SFTP or TFTP.
 
-On Linux or macOS, install a C11 compiler, Make and Python 3. From the repository root:
+## Build and transfer a file
+
+The C application runs on Linux or macOS with a C11 compiler and Make. Python 3
+is required for the test harness.
 
 ```sh
 make
-printf 'hello UDP\n' > /tmp/rudp-input.txt
-./server 9000 /tmp/rudp-output.txt
 ```
 
-In a second terminal, within 10 seconds:
+Start the receiver, then start the sender in a second terminal within 10 seconds:
 
 ```sh
-./client 127.0.0.1 9000 /tmp/rudp-input.txt
-cmp /tmp/rudp-input.txt /tmp/rudp-output.txt
+./src/server 9000 /tmp/received.bin
+./src/client 127.0.0.1 9000 /path/to/input.bin
+cmp /path/to/input.bin /tmp/received.bin
 ```
 
-Choose a fresh output filename each time: the server refuses existing files.
-Each server accepts one upload and exits after an 8-second final-ACK wait.
-Failed transfers remove the partial output they created. Use separate server
-processes and UDP ports for concurrent transfers. Both programs return nonzero
-on failure. Test the C application with:
+The receiver handles one upload and exits after a 6.4-second final-ACK linger.
+Start a fresh receiver for each transfer. Independent receiver processes on
+different ports can run concurrent transfers; there is no shared multi-client
+service. Both programs return zero on success and nonzero on failure.
+
+The receiver writes a temporary file beside the output. It replaces the output
+only after validating the declared size and whole-file CRC. **A successful
+transfer replaces an existing output file.** Ordinary failures preserve it and
+remove the temporary file; forced termination may leave a `.part.*` file. Keep
+the input file unchanged during upload.
+
+## Check the protocol
 
 ```sh
 make test
 ```
 
-## How Selective Repeat works
+The tests generate real binary data and cover empty files, chunk/window
+boundaries, loss in both directions, corruption, duplication, reordering,
+malformed messages, session isolation, missing FIN and retry exhaustion.
+Independent SHA-256 comparisons verify successful outputs. These tests do not
+need Mininet or privileged network configuration.
 
-1. START announces the file size and whole-file CRC-32.
-2. The sender splits the input into payloads of at most 1024 bytes.
-3. It keeps up to 16 DATA packets in flight, each with its own sequence number.
-4. The receiver ACKs packets individually and buffers in-window reordered DATA.
-5. Only contiguous DATA is written; duplicate packets are ACKed without rewriting.
-6. Each unacknowledged packet is retried after 250 ms, up to 30 retries.
-7. FIN/FIN_ACK completes the upload after the size and file CRC match.
+Client summaries include transfer time, payload goodput, original DATA packets,
+total DATA sends and retransmissions. Receiver summaries include duplicates and
+out-of-order arrivals. See [metric definitions](docs/ARCHITECTURE.md#measurements).
 
-Every packet also has a CRC-32. CRC detects accidental corruption; it does not
-provide authentication. The [architecture](docs/ARCHITECTURE.md) describes the
-16-byte header, windows and timers.
+## Run the SDN lab
 
-## Mininet and controller
+Mininet requires Linux network namespaces and Open vSwitch. Use a dedicated
+Ubuntu Linux lab machine or VM with root access. macOS can run the C application
+and unit tests, but cannot run Mininet directly.
 
-Use an Ubuntu 22.04 Linux machine or VM with root access. Mininet cannot run
-natively on macOS. Install the lab and controller dependencies:
-
-```sh
-sudo apt-get update
-sudo apt-get install -y build-essential python3-venv python3-pip mininet openvswitch-switch iproute2 iputils-ping net-tools procps ethtool
-sudo python3 -m venv --system-site-packages /opt/sdn
-sudo /opt/sdn/bin/pip install -r requirements-sdn.txt
-sudo service openvswitch-switch start
-make
-sudo /opt/sdn/bin/python scripts/demo.py --datapath kernel
-```
-
-The runner starts the controller and Mininet for each trial. The diamond has
-h1-s1-s2-s4-h2 as its primary path and s1-s3-s4 as its alternate branch. OS-Ken,
-a maintained Ryu fork, runs the Ryu-style OpenFlow 1.3 controller. It receives
-port-status events, chooses the available branch and installs rules in both
-directions. OpenFlow barriers confirm rule processing. The endpoints continue
-using the same sockets; no application-side route change is required.
-
-For an interactive inspection, start the controller in one terminal and the
-network in another:
+From the repository root, install the lab dependencies and build the binaries:
 
 ```sh
-sh scripts/start_controller.sh
-sudo sh scripts/start_topology.sh --datapath kernel
+sudo bash scripts/setup_env.sh
 ```
 
-At the Mininet prompt:
+Run repeated normal, packet-loss and link-failure cases with static routing and
+automatic failover:
 
-```text
-pingall
-sh ovs-ofctl -O OpenFlow13 dump-flows s1
-link s1 s2 down
-sh ovs-ofctl -O OpenFlow13 dump-flows s1
-link s1 s2 up
-exit
+```sh
+sudo .venv/bin/python scripts/run_experiments.py \
+  --scenarios normal loss link-failure \
+  --modes static failover --repeats 3 --output results/latest
+.venv/bin/python scripts/plot_metrics.py results/latest/metrics.csv \
+  --output results/latest/plots
 ```
 
-## Docker demo and comparison
+Each trial uses the C endpoints inside Mininet, checks file integrity and saves
+the endpoint and controller logs. The static link-failure case is expected to
+exhaust its retry budget; the failover case is expected to finish through the
+alternate path. Expected behavior is not a substitute for the generated run
+record. See the [validation record](docs/VALIDATION.md) for what has actually run.
 
-Docker gives every teammate the same Ubuntu userspace, compiler, Mininet and
-pinned controller dependencies, making the commands reproducible across host
-systems. It is an environment tool; it does not implement UDP reliability or
-SDN rerouting. Install Docker Engine or Docker Desktop with Compose, then run
-from the repository root:
+The [demo guide](docs/DEMO.md) covers manual topology inspection, failure
+injection, concurrent transfers, troubleshooting and the evidence to present.
+
+Docker is optional; native execution above is the primary workflow.
+For the SDN lab on macOS, a Linux VM or Docker Desktop supplies Linux. Build the image, then
+run it with network namespace privileges and a results-only bind mount:
+
+```sh
+docker build -t rudp-sdn .
+mkdir -p results/docker
+docker run --rm --privileged \
+  -v "$PWD/results/docker:/project/results/docker" rudp-sdn \
+  python scripts/run_experiments.py --datapath user --repeats 3 \
+  --output results/docker/evaluation
+docker run --rm --entrypoint python \
+  -v "$PWD/results/docker:/project/results/docker" rudp-sdn \
+  scripts/plot_metrics.py results/docker/evaluation/metrics.csv \
+  --output results/docker/evaluation/plots
+```
+
+The newer Compose shortcut is also retained:
 
 ```sh
 docker compose run --build --rm demo
 ```
 
-For a shorter run after the image is built:
+It uses `scripts/demo.py`, adapted for restored JSONL progress and statistics.
+That runner and Docker/Mininet execution have not been revalidated in this
+restoration session; the comprehensive runner above is the primary SDN workflow.
 
-```sh
-docker compose run --rm demo python scripts/demo.py --repetitions 1 --mib 1
-```
+The image builds its own Linux binaries. The userspace switch datapath avoids
+requiring the Docker VM to provide an Open vSwitch kernel module. Use a fresh
+output directory for each run.
 
-The privileged container needs network namespaces and virtual interfaces.
-Its userspace OVS datapath avoids requiring an OVS kernel module in Docker's
-Linux VM. Run it only on a machine where you can grant those privileges.
+## Project documentation
 
-The default demo uses 2 MiB inputs and three repetitions. It compares normal
-traffic, bidirectional netem impairments (8 ms delay, 2 ms jitter, 2% loss, 1%
-duplication, 20% reordering with 50% correlation), and the same one-second
-primary-link outage under static and dynamic routing. Static routing waits for
-the original link to return; dynamic routing can use the alternate branch.
+- [Architecture, topology and packet layout](docs/ARCHITECTURE.md)
+- [Demo and experiment guide](docs/DEMO.md)
+- [Viva questions](docs/VIVA.md)
+- [Report structure and interpretation](docs/REPORT.md)
+- [Assignment checklist and rubric mapping](docs/RUBRIC_MAPPING.md)
+- [Validation record](docs/VALIDATION.md)
+- [Design decisions and references](docs/DESIGN_DECISIONS.md)
 
-Results go to `results/demo-TIMESTAMP/`. `metrics.csv` records scenario, mode,
-bytes, retransmissions, seconds, recovery interval, route interval and SHA-256.
-Each trial retains endpoint logs, controller logs/events and progress timestamps.
-Successful output hashes are checked against the input. Recovery is measured
-from the fault to renewed contiguous ACK progress after route confirmation
-(dynamic) or link restoration (static). Route time ends at the OpenFlow barrier.
-These definitions and the VM environment limit interpretation of the numbers.
-See [VALIDATION](docs/VALIDATION.md) for checks actually executed; commands and
-expected behavior alone are not measured evidence.
+The earlier [stop-and-wait implementation](examples/stop_and_wait/README.md)
+is preserved with its matching receiver. Its wire format is incompatible with
+the current `src/client` and `src/server`; use each pair together. The SDN
+comparison holds the current transfer protocol constant and changes only the
+routing policy.
 
-## Viva answer
+## Scope and limits
 
-We use UDP so that we can implement and explain reliability ourselves in C.
-Selective Repeat sends a window of 16 packets, ACKs each sequence number, buffers
-reordering and retries only missing packets after 250 ms. CRC-32 checks packets
-and the completed file. In Mininet, the controller detects a failed primary
-link and changes OpenFlow rules to use the alternate path while the same
-transfer continues. We compare this with static routing using file integrity,
-transfer time, retransmissions and recovery time. Docker packages the Linux lab
-and pinned dependencies so teammates can reproduce the demonstration. For the
-examiner: we use Docker for the same Linux tools and dependency versions on every
-teammate's machine; the C application and SDN controller still implement the project.
+The protocol uses a fixed window and 200 ms retry interval, with at most 30
+retries per packet. It does not implement adaptive congestion control, RTT
+estimation, encryption, authentication or restart/resume. An outage longer than
+the retry or receiver inactivity budget can fail the transfer. CRC-32 detects
+accidental corruption; the independent SHA-256 check belongs to the test and
+experiment harness, not the wire protocol.
 
-## Viva questions
+The SDN controller is designed for the supplied diamond and detects link state
+changes through OpenFlow port status events. It does not claim general topology
+discovery or congestion-aware routing. Use controlled lab networks for these
+experiments.
 
-| Question | Answer |
-| --- | --- |
-| Why UDP rather than TCP? | UDP lets us demonstrate ACKs, windows, retransmission and ordering at application level. |
-| Why Selective Repeat instead of Stop-and-Wait or Go-Back-N? | Stop-and-Wait waits after each packet. Go-Back-N resends the missing packet and later packets. Selective Repeat keeps a window in flight and retries only packets still missing. |
-| What if a middle packet is lost? | Later packets are buffered and ACKed. The missing packet times out and is retried; once it arrives, the receiver writes the consecutive buffered packets. |
-| How does the controller know a link failed and reroute? | An OpenFlow port-status event identifies the failed port. The controller selects the available diamond branch and replaces forward and reverse flow rules, then checks barrier replies. |
-| Why 16 packets and 250 ms? | They are fixed, understandable lab settings; they are not adaptive or universally optimal. |
-| What if an ACK is lost? | The sender retries DATA; the receiver ACKs the duplicate without writing it again. |
-| What does SDN add? | Retries cannot repair a broken route; the controller installs an alternate route. |
-| How do you prove correctness? | Check packet/file CRC and independently compare source/output SHA-256 or bytes. |
-| Why keep a static baseline? | It shows the effect of rerouting under the same outage and application settings. |
-| Is Docker the network controller? | No. It supplies the Linux environment; OS-Ken controls the OpenFlow switches. |
+## License
 
-## Limits
-
-This is one upload per process, with no resume, authentication, encryption,
-congestion control, adaptive timeout, transfer ID or atomic rename. Fresh
-receivers reduce confusion from stale datagrams; this is not a production
-session protocol. Fixed retry and inactivity limits can terminate a transfer
-under long outages. The controller knows this diamond's ports; it does not
-implement general topology discovery or congestion-aware routing. Tests on
-localhost do not establish Mininet or Docker behavior.
-
-The [rubric mapping](docs/RUBRIC_MAPPING.md) uses the supplied assessment weights.
-The [original team guide](docs/Project_Guide_and_Checklist.pdf) is unchanged.
-[MIT license](LICENSE).
+[MIT](LICENSE).

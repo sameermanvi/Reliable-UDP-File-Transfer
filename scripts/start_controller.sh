@@ -1,4 +1,5 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-exec "${SDN_BIN:-/opt/sdn/bin}/osken-manager" --ofp-tcp-listen-port 6653 controller/failover.py "$@"
+if [ -d .venv/bin ]; then default_sdn_bin=.venv/bin; else default_sdn_bin=/opt/sdn/bin; fi
+exec "${SDN_BIN:-$default_sdn_bin}/osken-manager" --ofp-tcp-listen-port 6653 controller/failover.py "$@"
