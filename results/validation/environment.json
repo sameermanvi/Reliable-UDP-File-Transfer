@@ -1,0 +1,11 @@
+{
+  "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.35",
+  "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+  "source_sha256": "da66b2e3a58d9f23dbc2472a915d7badfe23a30ea362e702fa0ed5b908989028",
+  "mib": 2,
+  "repetitions": 3,
+  "datapath": "user",
+  "controller": "os-ken 2.11.2",
+  "bandwidth_mbps": 10,
+  "interswitch_delay": "5ms"
+}

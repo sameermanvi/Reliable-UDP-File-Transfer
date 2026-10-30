@@ -1,0 +1,7 @@
+services:
+  demo:
+    build: .
+    privileged: true
+    volumes:
+      - ./results:/project/results
+    command: [python, scripts/demo.py]

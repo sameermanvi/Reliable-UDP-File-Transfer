@@ -17,4 +17,4 @@ clean:
 	$(RM) client server *.o
 
 test: all
-	python3 ../tests/test_protocol.py
+	python3 ../tests/test_local.py
