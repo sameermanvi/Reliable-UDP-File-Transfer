@@ -1,8 +1,6 @@
 #include "utils.h"
 #include <arpa/inet.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
 #include <poll.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -11,7 +9,6 @@
 
 #define PROTOCOL_MAGIC UINT32_C(0x52554450)
 #define PROTOCOL_VERSION 1u
-
 void put_u32(unsigned char *out, uint32_t value)
 {
     for (unsigned int i = 0; i < 4; ++i)
@@ -57,12 +54,11 @@ size_t packet_encode(unsigned char *wire, const struct packet *packet)
     wire[5] = packet->type;
     wire[6] = (unsigned char)(packet->length >> 8);
     wire[7] = (unsigned char)packet->length;
-    put_u64(wire + 8, packet->transfer_id);
-    put_u32(wire + 16, packet->sequence);
-    memset(wire + 20, 0, 4);
+    put_u32(wire + 8, packet->sequence);
+    memset(wire + 12, 0, 4);
     memcpy(wire + HEADER_SIZE, packet->payload, packet->length);
     size_t size = HEADER_SIZE + packet->length;
-    put_u32(wire + 20, crc32_update(UINT32_MAX, wire, size) ^ UINT32_MAX);
+    put_u32(wire + 12, crc32_update(UINT32_MAX, wire, size) ^ UINT32_MAX);
     return size;
 }
 
@@ -77,12 +73,11 @@ int packet_decode(struct packet *packet, const unsigned char *wire, size_t size)
         return -1;
     unsigned char copy[MAX_PACKET_SIZE];
     memcpy(copy, wire, size);
-    memset(copy + 20, 0, 4);
-    if ((crc32_update(UINT32_MAX, copy, size) ^ UINT32_MAX) != get_u32(wire + 20))
+    memset(copy + 12, 0, 4);
+    if ((crc32_update(UINT32_MAX, copy, size) ^ UINT32_MAX) != get_u32(wire + 12))
         return -1;
     packet->type = wire[5];
-    packet->transfer_id = get_u64(wire + 8);
-    packet->sequence = get_u32(wire + 16);
+    packet->sequence = get_u32(wire + 8);
     packet->length = length;
     memcpy(packet->payload, wire + HEADER_SIZE, length);
     return 0;
@@ -119,25 +114,6 @@ uint64_t monotonic_ns(void)
 uint64_t monotonic_ms(void)
 {
     return monotonic_ns() / UINT64_C(1000000);
-}
-
-int random_transfer_id(uint64_t *id)
-{
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0)
-        return -1;
-    size_t offset = 0;
-    while (offset < sizeof(*id)) {
-        ssize_t count = read(fd, (unsigned char *)id + offset, sizeof(*id) - offset);
-        if (count < 0 && errno == EINTR)
-            continue;
-        if (count <= 0) {
-            close(fd);
-            return -1;
-        }
-        offset += (size_t)count;
-    }
-    return close(fd);
 }
 
 int file_metadata(FILE *file, uint64_t *size, uint32_t *checksum)

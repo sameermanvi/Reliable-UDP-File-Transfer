@@ -6,10 +6,10 @@
 
 /* Wire fields use network byte order; never send a native C struct. */
 #define PAYLOAD_SIZE 1024u
-#define HEADER_SIZE 24u
+#define HEADER_SIZE 16u
 #define MAX_PACKET_SIZE (HEADER_SIZE + PAYLOAD_SIZE)
-#define WINDOW_SIZE 32u
-#define RETRY_TIMEOUT_MS 200u
+#define WINDOW_SIZE 16u
+#define RETRY_TIMEOUT_MS 250u
 #define MAX_RETRIES 30u
 #define SESSION_TIMEOUT_MS 10000u
 #define FIN_LINGER_MS ((MAX_RETRIES + 2u) * RETRY_TIMEOUT_MS)
@@ -22,7 +22,6 @@ enum packet_type {
 
 struct packet {
     uint8_t type;
-    uint64_t transfer_id;
     uint32_t sequence;
     uint16_t length;
     unsigned char payload[PAYLOAD_SIZE];

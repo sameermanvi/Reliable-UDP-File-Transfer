@@ -1,10 +1,10 @@
+/client
+/server
 /src/client
 /src/server
 /src/*.o
 __pycache__/
-*.part.??????
 .venv/
-/results/run-*/
-/results/latest/
-/results/demo/
-/results/debug-*/
+/results/*
+!/results/README.md
+!/results/validation/
