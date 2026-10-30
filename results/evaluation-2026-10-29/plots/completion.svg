@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="518.4pt" height="324pt" viewBox="0 0 518.4 324" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-10-30T04:59:58.123856</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.5.1, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 324
+L 518.4 324
+L 518.4 0
+L 0 0
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 51.05 284.456
+L 507.6 284.456
+L 507.6 25.44
+L 51.05 25.44
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 71.802273 284.456
+L 129.049922 284.456
+L 129.049922 59.224696
+L 71.802273 59.224696
+z
+" clip-path="url(#p8d55a57c3c)" style="fill: #64748b"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 143.361834 284.456
+L 200.609483 284.456
+L 200.609483 59.224696
+L 143.361834 59.224696
+z
+" clip-path="url(#p8d55a57c3c)" style="fill: #2563eb"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 214.921395 284.456
+L 272.169044 284.456
+L 272.169044 59.224696
+L 214.921395 59.224696
+z
+" clip-path="url(#p8d55a57c3c)" style="fill: #64748b"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 286.480956 284.456
+L 343.728605 284.456
+L 343.728605 59.224696
+L 286.480956 59.224696
+z
+" clip-path="url(#p8d55a57c3c)" style="fill: #2563eb"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 358.040517 284.456
+L 415.288166 284.456
+L 415.288166 284.456
+L 358.040517 284.456
+z
+" clip-path="url(#p8d55a57c3c)" style="fill: #64748b"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 429.600078 284.456
+L 486.847727 284.456
+L 486.847727 59.224696
+L 429.600078 59.224696
+z
+" clip-path="url(#p8d55a57c3c)" style="fill: #2563eb"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="m4e041d7ff6" d="M 0 0
+L 0 3.5
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m4e041d7ff6" x="100.426097" y="284.456" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font: 10px 'sans-serif'" transform="translate(82.906566 299.054438)">normal</text>
+      <text style="font: 10px 'sans-serif'" transform="translate(86.698753 310.25225)">static</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#m4e041d7ff6" x="171.985658" y="284.456" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font: 10px 'sans-serif'" transform="translate(154.466127 299.054438)">normal</text>
+      <text style="font: 10px 'sans-serif'" transform="translate(153.232533 310.25225)">failover</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#m4e041d7ff6" x="243.545219" y="284.456" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font: 10px 'sans-serif'" transform="translate(233.887407 299.054438)">loss</text>
+      <text style="font: 10px 'sans-serif'" transform="translate(229.817876 310.25225)">static</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#m4e041d7ff6" x="315.104781" y="284.456" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font: 10px 'sans-serif'" transform="translate(305.446968 299.054438)">loss</text>
+      <text style="font: 10px 'sans-serif'" transform="translate(296.351656 310.25225)">failover</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_5">
+      <g>
+       <use xlink:href="#m4e041d7ff6" x="386.664342" y="284.456" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="font: 10px 'sans-serif'" transform="translate(360.227623 299.054438)">link-failure</text>
+      <text style="font: 10px 'sans-serif'" transform="translate(372.936998 310.25225)">static</text>
+     </g>
+    </g>
+    <g id="xtick_6">
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#m4e041d7ff6" x="458.223903" y="284.456" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="font: 10px 'sans-serif'" transform="translate(431.787184 299.054438)">link-failure</text>
+      <text style="font: 10px 'sans-serif'" transform="translate(439.470778 310.25225)">failover</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_7">
+      <defs>
+       <path id="m41eb3a3fb4" d="M 0 0
+L -3.5 0
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m41eb3a3fb4" x="51.05" y="284.456" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font: 10px 'sans-serif'; text-anchor: end" x="44.05" y="288.255219" transform="rotate(-0, 44.05, 288.255219)">0</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#m41eb3a3fb4" x="51.05" y="239.409739" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font: 10px 'sans-serif'; text-anchor: end" x="44.05" y="243.208958" transform="rotate(-0, 44.05, 243.208958)">20</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#m41eb3a3fb4" x="51.05" y="194.363478" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font: 10px 'sans-serif'; text-anchor: end" x="44.05" y="198.162697" transform="rotate(-0, 44.05, 198.162697)">40</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#m41eb3a3fb4" x="51.05" y="149.317217" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font: 10px 'sans-serif'; text-anchor: end" x="44.05" y="153.116436" transform="rotate(-0, 44.05, 153.116436)">60</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_11">
+      <g>
+       <use xlink:href="#m41eb3a3fb4" x="51.05" y="104.270957" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="font: 10px 'sans-serif'; text-anchor: end" x="44.05" y="108.070175" transform="rotate(-0, 44.05, 108.070175)">80</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m41eb3a3fb4" x="51.05" y="59.224696" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_12">
+      <text style="font: 10px 'sans-serif'; text-anchor: end" x="44.05" y="63.023914" transform="rotate(-0, 44.05, 63.023914)">100</text>
+     </g>
+    </g>
+    <g id="text_13">
+     <text style="font: 10px 'sans-serif'; text-anchor: middle" x="18.882813" y="154.948" transform="rotate(-90, 18.882813, 154.948)">Successful flows (%)</text>
+    </g>
+   </g>
+   <g id="patch_9">
+    <path d="M 51.05 284.456
+L 51.05 25.44
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 51.05 284.456
+L 507.6 284.456
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_14">
+    <text style="font: 10px 'sans-serif'; text-anchor: middle" x="100.426097" y="54.72007" transform="rotate(-0, 100.426097, 54.72007)">3/3</text>
+   </g>
+   <g id="text_15">
+    <text style="font: 10px 'sans-serif'; text-anchor: middle" x="171.985658" y="54.72007" transform="rotate(-0, 171.985658, 54.72007)">3/3</text>
+   </g>
+   <g id="text_16">
+    <text style="font: 10px 'sans-serif'; text-anchor: middle" x="243.545219" y="54.72007" transform="rotate(-0, 243.545219, 54.72007)">3/3</text>
+   </g>
+   <g id="text_17">
+    <text style="font: 10px 'sans-serif'; text-anchor: middle" x="315.104781" y="54.72007" transform="rotate(-0, 315.104781, 54.72007)">3/3</text>
+   </g>
+   <g id="text_18">
+    <text style="font: 10px 'sans-serif'; text-anchor: middle" x="386.664342" y="279.951374" transform="rotate(-0, 386.664342, 279.951374)">0/3</text>
+   </g>
+   <g id="text_19">
+    <text style="font: 10px 'sans-serif'; text-anchor: middle" x="458.223903" y="54.72007" transform="rotate(-0, 458.223903, 54.72007)">3/3</text>
+   </g>
+   <g id="text_20">
+    <text style="font: 12px 'sans-serif'; text-anchor: middle" x="279.325" y="19.44" transform="rotate(-0, 279.325, 19.44)">Completion across all trials, including failed runs</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p8d55a57c3c">
+   <rect x="51.05" y="25.44" width="456.55" height="259.016"/>
+  </clipPath>
+ </defs>
+</svg>
