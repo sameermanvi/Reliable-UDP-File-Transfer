@@ -7,4 +7,7 @@ clean:
 	$(MAKE) -C src clean
 	$(RM) client server
 test: all
+	python3 tests/test_protocol.py
+	python3 tests/test_controller.py
+	python3 tests/test_metrics.py
 	python3 tests/test_local.py

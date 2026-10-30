@@ -1,0 +1,176 @@
+[
+  {
+    "scenario": "normal",
+    "mode": "static",
+    "observations": 3,
+    "trials": 3,
+    "successful": 3,
+    "expected_outcomes": 3,
+    "goodput_mbps": {
+      "mean": 9.217333333333332,
+      "minimum": 9.213,
+      "maximum": 9.223,
+      "count": 3
+    },
+    "seconds": {
+      "mean": 3.6403333333333334,
+      "minimum": 3.638,
+      "maximum": 3.642,
+      "count": 3
+    },
+    "retransmits": {
+      "mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "count": 3
+    },
+    "route_install_seconds": null,
+    "progress_recovery_seconds": null,
+    "ack_gap_seconds": null
+  },
+  {
+    "scenario": "normal",
+    "mode": "failover",
+    "observations": 3,
+    "trials": 3,
+    "successful": 3,
+    "expected_outcomes": 3,
+    "goodput_mbps": {
+      "mean": 9.216666666666667,
+      "minimum": 9.216,
+      "maximum": 9.218,
+      "count": 3
+    },
+    "seconds": {
+      "mean": 3.6406666666666667,
+      "minimum": 3.64,
+      "maximum": 3.641,
+      "count": 3
+    },
+    "retransmits": {
+      "mean": 0.0,
+      "minimum": 0.0,
+      "maximum": 0.0,
+      "count": 3
+    },
+    "route_install_seconds": null,
+    "progress_recovery_seconds": null,
+    "ack_gap_seconds": null
+  },
+  {
+    "scenario": "loss",
+    "mode": "static",
+    "observations": 3,
+    "trials": 3,
+    "successful": 3,
+    "expected_outcomes": 3,
+    "goodput_mbps": {
+      "mean": 1.328,
+      "minimum": 1.265,
+      "maximum": 1.367,
+      "count": 3
+    },
+    "seconds": {
+      "mean": 25.300333333333334,
+      "minimum": 24.554,
+      "maximum": 26.532,
+      "count": 3
+    },
+    "retransmits": {
+      "mean": 343.0,
+      "minimum": 334.0,
+      "maximum": 358.0,
+      "count": 3
+    },
+    "route_install_seconds": null,
+    "progress_recovery_seconds": null,
+    "ack_gap_seconds": null
+  },
+  {
+    "scenario": "loss",
+    "mode": "failover",
+    "observations": 3,
+    "trials": 3,
+    "successful": 3,
+    "expected_outcomes": 3,
+    "goodput_mbps": {
+      "mean": 1.3003333333333333,
+      "minimum": 1.247,
+      "maximum": 1.377,
+      "count": 3
+    },
+    "seconds": {
+      "mean": 25.851333333333333,
+      "minimum": 24.369,
+      "maximum": 26.899,
+      "count": 3
+    },
+    "retransmits": {
+      "mean": 344.0,
+      "minimum": 322.0,
+      "maximum": 365.0,
+      "count": 3
+    },
+    "route_install_seconds": null,
+    "progress_recovery_seconds": null,
+    "ack_gap_seconds": null
+  },
+  {
+    "scenario": "link-failure",
+    "mode": "static",
+    "observations": 3,
+    "trials": 3,
+    "successful": 0,
+    "expected_outcomes": 3,
+    "goodput_mbps": null,
+    "seconds": null,
+    "retransmits": null,
+    "route_install_seconds": null,
+    "progress_recovery_seconds": null,
+    "ack_gap_seconds": null
+  },
+  {
+    "scenario": "link-failure",
+    "mode": "failover",
+    "observations": 3,
+    "trials": 3,
+    "successful": 3,
+    "expected_outcomes": 3,
+    "goodput_mbps": {
+      "mean": 8.724,
+      "minimum": 8.702,
+      "maximum": 8.743,
+      "count": 3
+    },
+    "seconds": {
+      "mean": 3.8463333333333334,
+      "minimum": 3.838,
+      "maximum": 3.856,
+      "count": 3
+    },
+    "retransmits": {
+      "mean": 32.0,
+      "minimum": 32.0,
+      "maximum": 32.0,
+      "count": 3
+    },
+    "route_install_seconds": {
+      "mean": 0.0048678336666666665,
+      "minimum": 0.003682667,
+      "maximum": 0.005563292,
+      "count": 3
+    },
+    "progress_recovery_seconds": {
+      "mean": 0.197174417,
+      "minimum": 0.195225584,
+      "maximum": 0.199519542,
+      "count": 3
+    },
+    "ack_gap_seconds": {
+      "mean": 0.197584764,
+      "minimum": 0.195994875,
+      "maximum": 0.199692959,
+      "count": 3
+    }
+  }
+]

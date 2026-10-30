@@ -8,3 +8,7 @@ __pycache__/
 /results/*
 !/results/README.md
 !/results/validation/
+
+*.part.??????
+!/results/evaluation-2026-10-29/
+!/results/concurrent-2026-10-29/

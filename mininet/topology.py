@@ -2,7 +2,7 @@
 """Two equal-cost paths between a UDP sender and receiver.
 
 The controller chooses upper (s2) or lower (s3). Explicit ports are part of the
-lab contract; controller/failover.py uses the same mapping.
+lab contract; controller/routing.py uses the same mapping.
 """
 
 import argparse
@@ -66,7 +66,7 @@ def main():
         network.stop()
 
 
-topos = {"diamond2paths": DiamondTopo}
+topos = {"diamond": DiamondTopo}
 
 if __name__ == "__main__":
     main()
