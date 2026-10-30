@@ -41,6 +41,37 @@ was then rebuilt with its normal compiler flags. Compiler warnings and
 
 ## Remaining validation
 
-Linux compilation, Mininet link impairments, real SDN path changes, long-RTT
-networks, large files near the sequence limit, cross-host interoperability and
-comparative throughput benchmarks have not been run in this phase.
+At the time of this historical record, Linux compilation, Mininet link impairments,
+real SDN path changes, long-RTT networks, large files near the sequence limit,
+cross-host interoperability and comparative throughput benchmarks had not been run.
+See the later validation record below for subsequent Linux and Mininet work.
+
+## Validation on 29 October 2026
+
+The current protocol suite passed all 7 tests on macOS and in the Linux Docker
+container. The controller routing suite passed all 10 tests on both platforms;
+the metrics suite passed all 6 tests on macOS. These results supplement the
+historical six-test record above; they do not replace it.
+
+The completed three-repeat Mininet evaluation met all 18 expected outcomes:
+15 successful transfers with matching SHA-256 and three expected static-route
+failures after link interruption. Normal and loss scenarios completed in both
+routing modes; all three failover transfers survived the link failure.
+Observed progress recovery ranged from 0.1952 to 0.1995 seconds (mean 0.1972 s).
+See [measured summary](../results/evaluation-2026-10-29/plots/summary.md).
+
+On 30 October, a separate concurrent trial transferred two files during the
+same link failure. Both completed with matching SHA-256 (4.540 Mb/s each).
+The 10 routing tests and 6 metrics tests also passed in Linux Docker.
+See [concurrent metrics](../results/concurrent-2026-10-29/metrics.csv).
+
+Each result directory contains environment details, metrics and a raw-log
+archive with endpoint, controller, progress, flow-table and queue evidence.
+The evaluation used Docker's userspace OVS datapath. Mininet reported that
+resource limits could not be raised; virtualization and resource scheduling
+limit how far these timings generalize to native hardware.
+
+An earlier preflight contained an invalid trial where random loss prevented
+the initial connectivity check. The runner now enables loss after that check
+and before transfer. The complete evaluation above was rerun with that fix;
+earlier debug logs are retained locally and excluded from the reported sample.

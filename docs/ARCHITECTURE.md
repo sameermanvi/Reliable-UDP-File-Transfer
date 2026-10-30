@@ -12,7 +12,62 @@
 - `tests/test_protocol.py`: independent Python wire encoder and deterministic
   localhost impairment proxy; application reliability itself remains pure C.
 
-Mininet and the SDN controller are deferred. Their existing files are unchanged.
+The Linux lab adds three components around the same client and server:
+
+- `mininet/topology.py`: two hosts and a four-switch diamond, with explicit
+  OpenFlow 1.3 ports and configurable bandwidth, delay and loss.
+- `controller/failover.py`: an OS-Ken controller that installs forwarding rules,
+  watches link status and selects the upper or lower path.
+- The experiment runner: launches the endpoints on Mininet hosts, introduces a
+  fault during a transfer, checks the received SHA-256, and saves logs and metrics.
+
+The application recovers missing datagrams through its existing ACK and retry
+logic. The controller changes forwarding rules when a network link fails. Their
+interaction is visible in the same live transfer; the application is not restarted
+when the path changes.
+
+## SDN topology and forwarding
+
+```text
+                  s2
+                 /  \
+ h1 --- s1 -----/    \----- s4 --- h2
+          \                  /
+           \------ s3 ------/
+
+ upper path: h1 - s1 - s2 - s4 - h2
+ lower path: h1 - s1 - s3 - s4 - h2
+```
+
+| Switch | Port 1 | Port 2 | Port 3 |
+| --- | --- | --- | --- |
+| s1 | h1 | s2 | s3 |
+| s2 | s1 | s4 | - |
+| s3 | s1 | s4 | - |
+| s4 | s2 | s3 | h2 |
+
+The topology fixes the port map so controller behavior is easy to inspect. Both
+branches have transit rules; host ingress rules choose the active branch in both
+directions. ARP and IPv4 follow the selected path without flooding around the
+loop. Replies and DATA therefore use the same selected branch.
+
+The controller has two modes. `static` retains the initial upper path even when
+it fails, providing the comparison baseline. `failover` reacts to OpenFlow port
+status events and selects an available alternate path. When a failed link comes
+back, the controller retains the current working path to avoid an unnecessary
+second interruption. If no route remains, it records `route_unavailable`.
+
+Controller JSONL events contain a monotonic timestamp (`monotonic_ns`) and UTC
+wall time. `link_down` and `link_up` identify the switch and port. A `route_ready`
+event identifies the path, cause and generation after OpenFlow barriers confirm
+that the switches processed the update. This is evidence of rule programming;
+application progress and the final output hash establish that file delivery
+actually resumed. These are separate measurements.
+
+This controller targets the supplied diamond topology. It does not discover and
+route through arbitrary networks or infer congestion from missing application
+ACKs. Link failure detection uses SDN port status; packet loss alone is handled
+by application retransmission.
 
 ## Packet format (version 1)
 
@@ -117,3 +172,16 @@ or sub-millisecond runs are not useful benchmark evidence.
 The receiver counts valid repeated DATA as duplicates and first arrivals above
 the current base as out-of-order. Its summary is printed before linger, so it
 does not include late duplicates during that linger.
+
+Set `RUDP_PROGRESS_LOG` to a new file path to collect client JSONL progress. The
+client creates it exclusively, so an existing path is an error rather than a
+truncated log. Each advance of the contiguous ACK prefix records
+`event: "ack_progress"`, `monotonic_ns`, `base` (the next unacknowledged chunk)
+and `bytes` (the acknowledged file prefix). Events are flushed as they occur.
+An empty file has no DATA progress events. This optional logging changes no wire
+messages and uses the same Linux monotonic clock as the experiment runner.
+
+The runner correlates ACK progress with failure injection and controller events.
+Barrier readiness measures controller rule installation; new contiguous ACK
+progress measures resumption of useful delivery. Report those separately and
+retain the raw timestamps so recovery definitions can be checked.

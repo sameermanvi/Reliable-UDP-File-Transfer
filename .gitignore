@@ -3,3 +3,8 @@
 /src/*.o
 __pycache__/
 *.part.??????
+.venv/
+/results/run-*/
+/results/latest/
+/results/demo/
+/results/debug-*/

@@ -1,0 +1,29 @@
+{
+  "scenarios": [
+    "normal",
+    "loss",
+    "link-failure"
+  ],
+  "modes": [
+    "static",
+    "failover"
+  ],
+  "repeats": 3,
+  "flows": 1,
+  "file_size": 4194304,
+  "bandwidth": 10,
+  "delay": "5ms",
+  "loss": 2,
+  "fail_after": 1,
+  "timeout": 120,
+  "datapath": "user",
+  "output": "/project/results/evaluation-2026-10-29",
+  "keep_files": false,
+  "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+  "platform": "Linux-7.0.14-linuxkit-aarch64-with-glibc2.35",
+  "controller": "os-ken 2.11.2",
+  "source_sha256": "e7b8da93ca06d1887d6356cf22c91b1983bc7dd416d777b64104be105aba1b8b",
+  "file_random_seed": 243,
+  "ovs_version": "ovs-vsctl (Open vSwitch) 2.17.12\nDB Schema 8.3.0",
+  "generated_at": "2026-10-29T16:33:47Z"
+}
