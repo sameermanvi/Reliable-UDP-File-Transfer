@@ -1,0 +1,18 @@
+[
+  {
+    "active_path": "upper",
+    "failed_path": "upper",
+    "classification": "active_or_unknown",
+    "route_install_seconds": 0.004154022,
+    "progress_recovery_seconds": 0.044514575,
+    "ack_gap_seconds": 0.045055613,
+    "link_detection_seconds": 0.00212944,
+    "link_down_to_progress_seconds": 0.042385135,
+    "route_to_progress_seconds": 0.040360553,
+    "failure_monotonic_ns": 8356956759604,
+    "link_down_monotonic_ns": 8356958889044,
+    "route_ready_monotonic_ns": 8356960913626,
+    "useful_ack_monotonic_ns": 8357001274179,
+    "recovery_status": "recovered"
+  }
+]

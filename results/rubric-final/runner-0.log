@@ -1,0 +1,691 @@
+make: Entering directory '/project/src'
+make: Nothing to be done for 'all'.
+make: Leaving directory '/project/src'
+Running normal static fixed plain cc=off repeat=1
+*** Error setting resource limits. Mininet's performance may be affected.
+ROUTE READY path=upper cause=startup monotonic_ns=4817583360870
+  success=True sha256_match=True recovery=Nones goodput=9.277 expected=True error=
+Running normal static fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=4832036211026
+  success=True sha256_match=True recovery=Nones goodput=9.3 expected=True error=
+Running normal static fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=4846446787067
+  success=True sha256_match=True recovery=Nones goodput=9.31 expected=True error=
+Running normal static fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=4860978562591
+  success=True sha256_match=True recovery=Nones goodput=9.312 expected=True error=
+Running normal static fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=4875446042584
+  success=True sha256_match=True recovery=Nones goodput=9.312 expected=True error=
+Running normal static fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=4890000231617
+  success=True sha256_match=True recovery=Nones goodput=9.305 expected=True error=
+Running normal static adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=4904420892851
+  success=True sha256_match=True recovery=Nones goodput=9.309 expected=True error=
+Running normal static adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=4918935655101
+  success=True sha256_match=True recovery=Nones goodput=9.31 expected=True error=
+Running normal static adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=4933513791898
+  success=True sha256_match=True recovery=Nones goodput=9.306 expected=True error=
+Running normal static adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=4948033385553
+  success=True sha256_match=True recovery=Nones goodput=9.297 expected=True error=
+Running normal static adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=4962705290411
+  success=True sha256_match=True recovery=Nones goodput=9.303 expected=True error=
+Running normal static adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=4977277961084
+  success=True sha256_match=True recovery=Nones goodput=9.295 expected=True error=
+Running normal failover fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=4991816733303
+  success=True sha256_match=True recovery=Nones goodput=9.297 expected=True error=
+Running normal failover fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5006289724060
+  success=True sha256_match=True recovery=Nones goodput=9.309 expected=True error=
+Running normal failover fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5020744348831
+  success=True sha256_match=True recovery=Nones goodput=9.312 expected=True error=
+Running normal failover fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5035219394757
+  success=True sha256_match=True recovery=Nones goodput=9.312 expected=True error=
+Running normal failover fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5049684540713
+  success=True sha256_match=True recovery=Nones goodput=9.3 expected=True error=
+Running normal failover fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5064102751165
+  success=True sha256_match=True recovery=Nones goodput=9.287 expected=True error=
+Running normal failover adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5078646540652
+  success=True sha256_match=True recovery=Nones goodput=9.277 expected=True error=
+Running normal failover adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5093348711281
+  success=True sha256_match=True recovery=Nones goodput=9.31 expected=True error=
+Running normal failover adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5108119749947
+  success=True sha256_match=True recovery=Nones goodput=9.309 expected=True error=
+Running normal failover adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5122950560444
+  success=True sha256_match=True recovery=Nones goodput=9.279 expected=True error=
+Running normal failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5137514266932
+  success=True sha256_match=True recovery=Nones goodput=9.297 expected=True error=
+Running normal failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5152098451143
+  success=True sha256_match=True recovery=Nones goodput=9.292 expected=True error=
+Running loss static fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5166766988287
+  success=True sha256_match=True recovery=Nones goodput=9.31 expected=True error=
+Running loss static fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5181338805859
+  success=True sha256_match=True recovery=Nones goodput=9.309 expected=True error=
+Running loss static fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5195814164183
+  success=True sha256_match=True recovery=Nones goodput=9.3 expected=True error=
+Running loss static fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5210357876006
+  success=True sha256_match=True recovery=Nones goodput=3.707 expected=True error=
+Running loss static fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5235671226971
+  success=True sha256_match=True recovery=Nones goodput=3.508 expected=True error=
+Running loss static fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5262191411904
+  success=True sha256_match=True recovery=Nones goodput=3.524 expected=True error=
+Running loss static fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5288602173715
+  success=True sha256_match=True recovery=Nones goodput=9.308 expected=True error=
+Running loss static fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5303117791631
+  success=True sha256_match=True recovery=Nones goodput=9.312 expected=True error=
+Running loss static fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5317676273269
+  success=True sha256_match=True recovery=Nones goodput=9.31 expected=True error=
+Running loss static fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5332161988013
+  success=True sha256_match=True recovery=Nones goodput=5.422 expected=True error=
+Running loss static fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5351905158746
+  success=True sha256_match=True recovery=Nones goodput=4.97 expected=True error=
+Running loss static fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5372671557720
+  success=True sha256_match=True recovery=Nones goodput=4.493 expected=True error=
+Running loss static adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5394706998196
+  success=True sha256_match=True recovery=Nones goodput=9.31 expected=True error=
+Running loss static adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5409245316832
+  success=True sha256_match=True recovery=Nones goodput=9.312 expected=True error=
+Running loss static adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5423822265386
+  success=True sha256_match=True recovery=Nones goodput=9.31 expected=True error=
+Running loss static adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5438393978753
+  success=True sha256_match=True recovery=Nones goodput=4.77 expected=True error=
+Running loss static adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5459845608995
+  success=True sha256_match=True recovery=Nones goodput=4.287 expected=True error=
+Running loss static adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5482864589185
+  success=True sha256_match=True recovery=Nones goodput=5.298 expected=True error=
+Running loss static adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5502716849934
+  success=True sha256_match=True recovery=Nones goodput=9.226 expected=True error=
+Running loss static adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5517241822256
+  success=True sha256_match=True recovery=Nones goodput=9.312 expected=True error=
+Running loss static adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5531755076409
+  success=True sha256_match=True recovery=Nones goodput=9.313 expected=True error=
+Running loss static adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5546279515637
+  success=True sha256_match=True recovery=Nones goodput=6.24 expected=True error=
+Running loss static adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5564353005307
+  success=True sha256_match=True recovery=Nones goodput=6.236 expected=True error=
+Running loss static adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5582492681075
+  success=True sha256_match=True recovery=Nones goodput=5.267 expected=True error=
+Running loss failover fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5602604576848
+  success=True sha256_match=True recovery=Nones goodput=9.309 expected=True error=
+Running loss failover fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5617088272309
+  success=True sha256_match=True recovery=Nones goodput=9.22 expected=True error=
+Running loss failover fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5631662810008
+  success=True sha256_match=True recovery=Nones goodput=9.309 expected=True error=
+Running loss failover fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5646216110230
+ROUTE READY path=lower cause=health_update monotonic_ns=5650936570203
+ROUTE READY path=upper cause=health_update monotonic_ns=5653965497130
+ROUTE READY path=lower cause=health_update monotonic_ns=5657760522031
+ROUTE READY path=upper cause=health_update monotonic_ns=5665320788887
+  success=True sha256_match=True recovery=Nones goodput=3.206 expected=True error=
+Running loss failover fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5674508937170
+ROUTE READY path=lower cause=health_update monotonic_ns=5678706501287
+ROUTE READY path=upper cause=health_update monotonic_ns=5682235813084
+ROUTE READY path=lower cause=health_update monotonic_ns=5688025865471
+ROUTE READY path=upper cause=health_update monotonic_ns=5690042345789
+ROUTE READY path=lower cause=health_update monotonic_ns=5692063160819
+ROUTE READY path=upper cause=health_update monotonic_ns=5694078620315
+  success=True sha256_match=True recovery=Nones goodput=3.395 expected=True error=
+Running loss failover fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5701635407891
+ROUTE READY path=lower cause=health_update monotonic_ns=5711399390278
+ROUTE READY path=upper cause=health_update monotonic_ns=5715943114449
+ROUTE READY path=lower cause=health_update monotonic_ns=5717963736149
+ROUTE READY path=upper cause=health_update monotonic_ns=5719984277591
+  success=True sha256_match=True recovery=Nones goodput=3.302 expected=True error=
+Running loss failover fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5729351824253
+  success=True sha256_match=True recovery=Nones goodput=9.29 expected=True error=
+Running loss failover fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5743979755941
+  success=True sha256_match=True recovery=Nones goodput=9.278 expected=True error=
+Running loss failover fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5758671531587
+  success=True sha256_match=True recovery=Nones goodput=9.312 expected=True error=
+Running loss failover fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5773197797759
+ROUTE READY path=lower cause=health_update monotonic_ns=5775392010653
+ROUTE READY path=upper cause=health_update monotonic_ns=5778683614145
+ROUTE READY path=lower cause=health_update monotonic_ns=5781457533867
+  success=True sha256_match=True recovery=Nones goodput=4.954 expected=True error=
+Running loss failover fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5793929533638
+ROUTE READY path=lower cause=health_update monotonic_ns=5801159718246
+ROUTE READY path=upper cause=health_update monotonic_ns=5803428607011
+  success=True sha256_match=True recovery=Nones goodput=5.439 expected=True error=
+Running loss failover fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5813608541242
+ROUTE READY path=lower cause=health_update monotonic_ns=5815803718895
+ROUTE READY path=upper cause=health_update monotonic_ns=5817836021802
+  success=True sha256_match=True recovery=Nones goodput=4.931 expected=True error=
+Running loss failover adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5834546979568
+  success=True sha256_match=True recovery=Nones goodput=9.277 expected=True error=
+Running loss failover adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5849129740866
+  success=True sha256_match=True recovery=Nones goodput=9.29 expected=True error=
+Running loss failover adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5863593017313
+  success=True sha256_match=True recovery=Nones goodput=9.299 expected=True error=
+Running loss failover adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5878097569836
+ROUTE READY path=lower cause=health_update monotonic_ns=5880289149675
+ROUTE READY path=upper cause=health_update monotonic_ns=5882309929104
+ROUTE READY path=lower cause=health_update monotonic_ns=5884576066819
+ROUTE READY path=upper cause=health_update monotonic_ns=5886587052592
+ROUTE READY path=lower cause=health_update monotonic_ns=5889356174250
+ROUTE READY path=upper cause=health_update monotonic_ns=5891371513421
+  success=True sha256_match=True recovery=Nones goodput=4.984 expected=True error=
+Running loss failover adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5898861799903
+ROUTE READY path=lower cause=health_update monotonic_ns=5909621043578
+  success=True sha256_match=True recovery=Nones goodput=4.853 expected=True error=
+Running loss failover adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5920022678868
+ROUTE READY path=lower cause=health_update monotonic_ns=5929772971299
+  success=True sha256_match=True recovery=Nones goodput=4.869 expected=True error=
+Running loss failover adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5941022684854
+  success=True sha256_match=True recovery=Nones goodput=9.31 expected=True error=
+Running loss failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=5955522541040
+  success=True sha256_match=True recovery=Nones goodput=9.254 expected=True error=
+Running loss failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=5970101049120
+  success=True sha256_match=True recovery=Nones goodput=9.309 expected=True error=
+Running loss failover adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=5984599688403
+ROUTE READY path=lower cause=health_update monotonic_ns=5986775743834
+ROUTE READY path=upper cause=health_update monotonic_ns=5988796375157
+ROUTE READY path=lower cause=health_update monotonic_ns=5990817271852
+  success=True sha256_match=True recovery=Nones goodput=6.037 expected=True error=
+Running loss failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6003086377221
+ROUTE READY path=lower cause=health_update monotonic_ns=6009311298428
+ROUTE READY path=upper cause=health_update monotonic_ns=6013600653202
+  success=True sha256_match=True recovery=Nones goodput=5.858 expected=True error=
+Running loss failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6021802034294
+ROUTE READY path=lower cause=health_update monotonic_ns=6025247493760
+ROUTE READY path=upper cause=health_update monotonic_ns=6028525477801
+ROUTE READY path=lower cause=health_update monotonic_ns=6030538367101
+ROUTE READY path=upper cause=health_update monotonic_ns=6032556969742
+  success=True sha256_match=True recovery=Nones goodput=6.148 expected=True error=
+Running link-failure static fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6040094198040
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6051516759413
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6062933118138
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6074340076519
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6086853191500
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6099255457372
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6111687829549
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6123072539927
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6134529105951
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6145988423335
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6158440498374
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6170887968133
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6183342786234
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6194745530303
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6206178138271
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6217501186958
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6229924759180
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6242404014999
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6254854072949
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6266333116941
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6278003593424
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6289428350597
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6301815228988
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6314231719661
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6327692783140
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6382439191714
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6437097993922
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6491712232553
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6547446446414
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6603144109061
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6658834343020
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6713514446395
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6766714075209
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6819381760060
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=6874982990969
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=6928652468872
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=6985291904504
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7040065273218
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7094671598576
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7149376217646
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7205080165376
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7260756947197
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7317459461276
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7370699086674
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7424221848122
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7477706963098
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7533476988995
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure static adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7588103130802
+LINK DOWN upper; transfer remains active
+  success=False sha256_match=False recovery=Nones goodput=None expected=True error=
+Running link-failure failover fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7643948270007
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7644678701863
+  success=True sha256_match=True recovery=0.197800482s goodput=8.929 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7658897378058
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7659654639813
+  success=True sha256_match=True recovery=0.199628933s goodput=8.943 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7673718324189
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7674447327932
+  success=True sha256_match=True recovery=0.197724829s goodput=9.053 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7688414171721
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7690156867093
+  success=True sha256_match=True recovery=0.197206722s goodput=9.063 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7703082798753
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7704811598515
+  success=True sha256_match=True recovery=0.195935496s goodput=9.059 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7717801240117
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7719545801615
+  success=True sha256_match=True recovery=0.194737232s goodput=9.058 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7732514607840
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7733478227335
+  success=True sha256_match=True recovery=0.195837273s goodput=3.505 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7759069850942
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7759831455599
+  success=True sha256_match=True recovery=0.212827382s goodput=3.095 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7788024054293
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7788799214421
+  success=True sha256_match=True recovery=0.233923257s goodput=3.182 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7816411005272
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7818188986132
+  success=True sha256_match=True recovery=0.203117091s goodput=2.999 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7846132270335
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7847895973498
+  success=True sha256_match=True recovery=0.405742661s goodput=3.674 expected=True error=
+Running link-failure failover fixed plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7871762450772
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7873519775682
+  success=True sha256_match=True recovery=0.202441584s goodput=3.422 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7898721053233
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7899450412914
+  success=True sha256_match=True recovery=0.196555527s goodput=9.059 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7913433539794
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7914181164945
+  success=True sha256_match=True recovery=0.196642014s goodput=9.057 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7928206236755
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7928948820539
+  success=True sha256_match=True recovery=0.199107244s goodput=9.054 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7942915069437
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7944661806416
+  success=True sha256_match=True recovery=0.195623133s goodput=9.06 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=7957654100169
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7959391816991
+  success=True sha256_match=True recovery=0.196023833s goodput=9.061 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=7972322932155
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7974055777061
+  success=True sha256_match=True recovery=0.202512948s goodput=9.059 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=7987090303598
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=7987852476693
+  success=True sha256_match=True recovery=0.203296744s goodput=4.821 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8008329885345
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8009105273199
+  success=True sha256_match=True recovery=0.180393948s goodput=5.349 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8028245911476
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8029023892349
+  success=True sha256_match=True recovery=0.068257764s goodput=4.88 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8049345059481
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8051115920135
+  success=True sha256_match=True recovery=0.199966513s goodput=5.045 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8070079053910
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8071883404117
+  success=True sha256_match=True recovery=0.225802046s goodput=5.219 expected=True error=
+Running link-failure failover fixed bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8090268263125
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8092056737078
+  success=True sha256_match=True recovery=0.210024014s goodput=4.627 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8112228960292
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8112974435555
+  success=True sha256_match=True recovery=0.04567216s goodput=9.237 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8126889979231
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8127631900282
+  success=True sha256_match=True recovery=0.044128853s goodput=9.239 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8141491804484
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8142230351699
+  success=True sha256_match=True recovery=0.044485768s goodput=9.25 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8156065446924
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8157809988424
+  success=True sha256_match=True recovery=0.044295326s goodput=9.25 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8170659789278
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8172402466080
+  success=True sha256_match=True recovery=0.044250548s goodput=9.233 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8185223769862
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8186959727158
+  success=True sha256_match=True recovery=0.045016288s goodput=9.25 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8199820242920
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8200602335338
+  success=True sha256_match=True recovery=0.237297273s goodput=4.728 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8221348961103
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8222110441357
+  success=True sha256_match=True recovery=0.088493016s goodput=4.753 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8242759867530
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8243548249864
+  success=True sha256_match=True recovery=0.076191151s goodput=4.853 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8263936748640
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8265711624467
+  success=True sha256_match=True recovery=0.122463798s goodput=5.03 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8284579046882
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8286344659317
+  success=True sha256_match=True recovery=0.10922223s goodput=4.684 expected=True error=
+Running link-failure failover adaptive plain cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8306180837358
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8307938759254
+  success=True sha256_match=True recovery=0.117643844s goodput=4.93 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8327147645893
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8327894404715
+  success=True sha256_match=True recovery=0.045010513s goodput=9.247 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8341691443130
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8342436695659
+  success=True sha256_match=True recovery=0.043857207s goodput=9.245 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8356217788073
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8356960913626
+  success=True sha256_match=True recovery=0.044514575s goodput=9.245 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8370714469934
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8372456002120
+  success=True sha256_match=True recovery=0.043355221s goodput=9.247 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8385293178012
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8387032979652
+  success=True sha256_match=True recovery=0.044184879s goodput=9.247 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8399832600118
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8401592092546
+  success=True sha256_match=True recovery=0.044312758s goodput=9.247 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8414371216882
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8415137875320
+  success=True sha256_match=True recovery=0.092420909s goodput=6.013 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8432908426807
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8433677505564
+  success=True sha256_match=True recovery=0.040216735s goodput=5.962 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8451560352664
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8452329270591
+  success=True sha256_match=True recovery=0.0605784s goodput=6.015 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8470048825784
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8471803360903
+  success=True sha256_match=True recovery=0.044770243s goodput=6.032 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8488519311953
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8490311505050
+  success=True sha256_match=True recovery=0.048539765s goodput=5.949 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8507098765330
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8508885801183
+  success=True sha256_match=True recovery=0.046477445s goodput=6.041 expected=True error=
+Results: /project/results/rubric-final/matrix/metrics.csv

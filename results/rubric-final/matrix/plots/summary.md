@@ -1,0 +1,62 @@
+# Experiment summary
+
+All rows are retained. Rates include failures; numeric performance summaries use successful transfers only. N/A is not zero. Multiple flows in one trial share a network and are not independent trials.
+
+| Scenario | Mode | Trials | Successful flows | Expected outcomes | Mean goodput (Mb/s) | Mean recovery (s) | Censored |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| normal | static/fixed/plain/cc=off/loss=0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2957 | N/A | 0 |
+| normal | static/fixed/bitmap/cc=off/loss=0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.3097 | N/A | 0 |
+| normal | static/adaptive/plain/cc=off/loss=0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.3083 | N/A | 0 |
+| normal | static/adaptive/bitmap/cc=off/loss=0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2983 | N/A | 0 |
+| normal | failover/fixed/plain/cc=off/loss=0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.3060 | N/A | 0 |
+| normal | failover/fixed/bitmap/cc=off/loss=0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2997 | N/A | 0 |
+| normal | failover/adaptive/plain/cc=off/loss=0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2987 | N/A | 0 |
+| normal | failover/adaptive/bitmap/cc=off/loss=0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2893 | N/A | 0 |
+| loss | static/fixed/plain/cc=off/loss=0.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.3063 | N/A | 0 |
+| loss | static/fixed/plain/cc=off/loss=2.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 3.5797 | N/A | 0 |
+| loss | static/fixed/bitmap/cc=off/loss=0.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.3100 | N/A | 0 |
+| loss | static/fixed/bitmap/cc=off/loss=2.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 4.9617 | N/A | 0 |
+| loss | static/adaptive/plain/cc=off/loss=0.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.3107 | N/A | 0 |
+| loss | static/adaptive/plain/cc=off/loss=2.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 4.7850 | N/A | 0 |
+| loss | static/adaptive/bitmap/cc=off/loss=0.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2837 | N/A | 0 |
+| loss | static/adaptive/bitmap/cc=off/loss=2.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 5.9143 | N/A | 0 |
+| loss | failover/fixed/plain/cc=off/loss=0.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2793 | N/A | 0 |
+| loss | failover/fixed/plain/cc=off/loss=2.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 3.3010 | N/A | 0 |
+| loss | failover/fixed/bitmap/cc=off/loss=0.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2933 | N/A | 0 |
+| loss | failover/fixed/bitmap/cc=off/loss=2.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 5.1080 | N/A | 0 |
+| loss | failover/adaptive/plain/cc=off/loss=0.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2887 | N/A | 0 |
+| loss | failover/adaptive/plain/cc=off/loss=2.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 4.9020 | N/A | 0 |
+| loss | failover/adaptive/bitmap/cc=off/loss=0.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2910 | N/A | 0 |
+| loss | failover/adaptive/bitmap/cc=off/loss=2.0/fail=1/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 6.0143 | N/A | 0 |
+| link-failure | static/fixed/plain/cc=off/loss=0.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/fixed/plain/cc=off/loss=0.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/fixed/plain/cc=off/loss=2.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/fixed/plain/cc=off/loss=2.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/fixed/bitmap/cc=off/loss=0.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/fixed/bitmap/cc=off/loss=0.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/fixed/bitmap/cc=off/loss=2.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/fixed/bitmap/cc=off/loss=2.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/adaptive/plain/cc=off/loss=0.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/adaptive/plain/cc=off/loss=0.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/adaptive/plain/cc=off/loss=2.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/adaptive/plain/cc=off/loss=2.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/adaptive/bitmap/cc=off/loss=0.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/adaptive/bitmap/cc=off/loss=0.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/adaptive/bitmap/cc=off/loss=2.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | static/adaptive/bitmap/cc=off/loss=2.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 0/3 | 3/3 | N/A | N/A | 3 |
+| link-failure | failover/fixed/plain/cc=off/loss=0.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 8.9750 | 0.1984 | 0 |
+| link-failure | failover/fixed/plain/cc=off/loss=0.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.0600 | 0.1960 | 0 |
+| link-failure | failover/fixed/plain/cc=off/loss=2.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 3.2607 | 0.2142 | 0 |
+| link-failure | failover/fixed/plain/cc=off/loss=2.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 3.3650 | 0.2704 | 0 |
+| link-failure | failover/fixed/bitmap/cc=off/loss=0.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.0567 | 0.1974 | 0 |
+| link-failure | failover/fixed/bitmap/cc=off/loss=0.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.0600 | 0.1981 | 0 |
+| link-failure | failover/fixed/bitmap/cc=off/loss=2.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 5.0167 | 0.1506 | 0 |
+| link-failure | failover/fixed/bitmap/cc=off/loss=2.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 4.9637 | 0.2119 | 0 |
+| link-failure | failover/adaptive/plain/cc=off/loss=0.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2420 | 0.0448 | 0 |
+| link-failure | failover/adaptive/plain/cc=off/loss=0.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2443 | 0.0445 | 0 |
+| link-failure | failover/adaptive/plain/cc=off/loss=2.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 4.7780 | 0.1340 | 0 |
+| link-failure | failover/adaptive/plain/cc=off/loss=2.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 4.8813 | 0.1164 | 0 |
+| link-failure | failover/adaptive/bitmap/cc=off/loss=0.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2457 | 0.0445 | 0 |
+| link-failure | failover/adaptive/bitmap/cc=off/loss=0.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 9.2470 | 0.0440 | 0 |
+| link-failure | failover/adaptive/bitmap/cc=off/loss=2.0/fail=0.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 5.9967 | 0.0644 | 0 |
+| link-failure | failover/adaptive/bitmap/cc=off/loss=2.0/fail=1.5/flap=1/start=upper/cut=upper/reorder=0/degrade=0 | 3 | 3/3 | 3/3 | 6.0073 | 0.0466 | 0 |

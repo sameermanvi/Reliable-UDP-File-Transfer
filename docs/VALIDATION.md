@@ -39,29 +39,91 @@ to useful ACK (0.199520 s from injection). See
 This validates the historical integration only; its source fingerprint differs
 from the new transport/probe implementation.
 
-## Pending final Linux checks — must execute before claiming full completion
+## Final Linux Docker validation — verified 31 October 2026
 
-The Docker daemon is absent at /var/run/docker.sock; see
-[environment check](../results/rubric-linux-plan/environment-check.txt).
-Starting Docker was previously declined, so no attempt was made to bypass that.
+The retained [evaluation manifest](../results/rubric-final/evaluation.json) reports
+`passed`, three repeats, starting at 13:28:20 UTC. All 60 configuration cells
+contain repeats 1, 2 and 3. [Tests](../results/rubric-final/tests.log) passed
+48 tests (8 protocol, 5 transport, 4 probes, 3 OpenFlow, 12 routing, 11 metrics,
+5 local integration). Runner logs contain 168, 3 and 9 trials respectively,
+all with `expected=True`, and no controller traceback.
 
-On Ubuntu 22.04 with root access:
+| Bundle | Trials | Hash-matched successes | Expected static failures |
+| --- | ---: | ---: | ---: |
+| [Matrix](../results/rubric-final/matrix/metrics.csv) | 168 | 120 | 48 |
+| [Lower recovery](../results/rubric-final/lower-recovery/metrics.csv) | 3 | 3 | 0 |
+| [Robustness](../results/rubric-final/robustness/metrics.csv) | 9 | 9 | 0 |
+| Total | 180 | 132 | 48 |
 
-```sh
-sudo sh scripts/setup_env.sh
-sudo .venv/bin/python scripts/demo.py --mode failover --output results/preflight-failover
-sudo .venv/bin/python scripts/evaluate.py --output results/rubric-final
-```
+All 180 `expectation_met` fields are true. Aggregate JSON, CSV and per-trial
+JSON agree. Every successful row has equal input/output SHA-256, successful
+endpoint exit codes and endpoint completion logs with the expected byte count.
+Payloads were not retained (`keep_files=false`); hash verification is the runner's
+recorded input/output digest comparison, not a new rehash of deleted payloads.
+The 8 MiB input hash is
+`956de95f8fbf243127b4242052fd396ece0969f9fb79ab84dd2d08e2dac4fd8c`;
+the 16 MiB robustness/soft-degradation input hash is
+`211cba1b86522400507e498fde24d8c7879c07222ef4a5743bc44c958830050f`.
 
-Expected: tests.log and evaluation.json with status passed; comparison matrix,
-reverse-branch recovery and robustness subdirectories; per-trial endpoint and
-controller JSONL, probe scores/decisions, network dumps, intervention/outage records,
-SHA-256 fields; goodput/retry/recovery/completion plots and joined timelines.
-Hard failover must finish with a matching hash. Permanent static failure must be
-recorded as expected failure with no output. Soft degradation must produce a
-health_update route change without a port-down event. Robustness must actually
-inject loss/reordering and at least three flap transitions. Censored recovery is
-N/A, and an uninjected trial is rejected. See [pending plan](../results/rubric-linux-plan/README.md).
+Permanent failure: static fails as expected in 48/48 cases; upper→lower failover
+succeeds in 48/48, lower→upper in 3/3. Normal succeeds in 24/24; loss cases
+(0% and 2% controls) in 48/48. Robustness succeeds in 6/6 with 2% loss,
+20% reordering and 0.5/2 s flap periods; retained intervention counts are
+117, 117, 118 and 32, 31, 31. Soft degradation succeeds in 3/3: injecting
+35% upper-branch loss produces upper→lower `health_update` decisions and
+barrier-confirmed `route_ready`, without any `link_down` event. Controller
+logs retain bidirectional probe samples and health scores.
+
+### Recovery measurements
+
+Every recovered trial was cross-checked against controller JSONL, progress JSONL,
+endpoint logs and its joined `plots/timeline.svg`. The useful ACK is the first
+`ack_progress` after `route_ready` whose contiguous base exceeds every base at or
+before readiness. All 57 recovered trial rows have ordered injection ≤ link_down
+≤ route_ready < useful ACK timestamps; all reported differences match the events.
+
+| Trial-level measurement (57 recovered rows) | Minimum | Median | Mean | Maximum |
+| --- | ---: | ---: | ---: | ---: |
+| link_down → useful ACK (ms) | 12.276 | 85.554 | 116.743 | 401.377 |
+| route_ready → useful ACK (ms) | 10.695 | 83.919 | 114.834 | 399.202 |
+| Injection request → useful ACK (ms) | 14.076 | 88.493 | 119.945 | 405.743 |
+
+Upper permanent-failure recovery (48 rows): link_down→ACK mean 132.651 ms,
+median 147.342 ms, range 38.384–401.377 ms. Lower recovery (3 rows): mean
+42.846 ms, median 42.968 ms, range 42.265–43.304 ms. Robust trials (6 rows):
+mean 26.422 ms, median 17.061 ms, range 12.276–76.378 ms.
+These are trial-level samples, not a pooled count of every flap.
+Per-intervention `outages-0.json` records retain 58 recovered outages, 48
+`censored_no_route` and 218 inactive-path flaps. The recovered outage timestamps
+were also checked against the traces. Trial recovery status totals are 57
+`recovered`, 48 `censored_no_route`, 75 `not_applicable` (including soft degradation).
+Missing and censored values remain null; they are not zero or included in latency
+statistics. Overall successful-transfer goodput ranges 2.999–9.313 Mb/s
+(mean 7.385, median 9.060); configurations differ, so this is descriptive only.
+
+### Environment and evidence boundaries
+
+VM host: Ubuntu 26.04.1 LTS, ARM64/aarch64, kernel 7.0.0-42-generic.
+The successful run used the project's Ubuntu 22.04 Docker image (see
+[Dockerfile](../Dockerfile)); retained environment manifests record Python 3.10.12,
+glibc 2.35, aarch64 and OVS 2.17.12. All three command manifests explicitly use
+`--datapath user`: this validates userspace OVS, not the kernel datapath.
+The container shares the VM kernel; it is not a native Ubuntu 22.04 host run.
+Live Docker metadata inspection required terminal sudo authentication and was
+unavailable during this audit; container release provenance is the Dockerfile,
+user-reported Docker execution and the recorded runtime versions.
+
+The separate [Ubuntu 22.04 preflight](../results/preflight-ubuntu22/metrics.csv)
+passed 1/1 with matching SHA-256 and upper→lower recovery of 42.392 ms from
+link_down (44.324 ms from injection). Its logs and timeline were inspected but
+are excluded from final evaluation counts and the commit. The failed Python 3.14
+preflight remains failed evidence and is not used to claim success.
+
+Retained final evidence includes [runner 0](../results/rubric-final/runner-0.log),
+[runner 1](../results/rubric-final/runner-1.log),
+[runner 2](../results/rubric-final/runner-2.log), and each bundle's environment,
+CSV/JSON metrics, summary plots, controller/progress/receiver events, endpoint
+logs, network dumps, interventions, outages and per-trial joined timelines.
 
 An earlier local test attempt used the wrong assertion that the global RTO must
 reach 2 s while the base remained fixed. The corrected adversarial test checks

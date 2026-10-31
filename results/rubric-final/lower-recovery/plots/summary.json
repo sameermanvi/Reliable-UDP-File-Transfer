@@ -1,0 +1,65 @@
+[
+  {
+    "scenario": "link-failure",
+    "mode": "failover/adaptive/bitmap/cc=off/loss=0.0/fail=1/flap=1/start=lower/cut=lower/reorder=0/degrade=0",
+    "observations": 3,
+    "trials": 3,
+    "successful": 3,
+    "censored": 0,
+    "expected_outcomes": 3,
+    "goodput_mbps": {
+      "mean": 9.245333333333333,
+      "minimum": 9.245,
+      "maximum": 9.246,
+      "count": 3
+    },
+    "seconds": {
+      "mean": 7.258666666666667,
+      "minimum": 7.258,
+      "maximum": 7.259,
+      "count": 3
+    },
+    "retransmits": {
+      "mean": 39.333333333333336,
+      "minimum": 38.0,
+      "maximum": 40.0,
+      "count": 3
+    },
+    "route_install_seconds": {
+      "mean": 0.003238968333333333,
+      "minimum": 0.003002845,
+      "maximum": 0.003386122,
+      "count": 3
+    },
+    "progress_recovery_seconds": {
+      "mean": 0.044885892,
+      "minimum": 0.044424087,
+      "maximum": 0.045366234,
+      "count": 3
+    },
+    "ack_gap_seconds": {
+      "mean": 0.045239994666666665,
+      "minimum": 0.044908567,
+      "maximum": 0.045868273,
+      "count": 3
+    },
+    "retransmit_fraction": {
+      "mean": 0.004778475644148766,
+      "minimum": 0.004617253948967193,
+      "maximum": 0.004859086491739553,
+      "count": 3
+    },
+    "link_down_to_progress_seconds": {
+      "mean": 0.042845822666666665,
+      "minimum": 0.042264805,
+      "maximum": 0.043304272,
+      "count": 3
+    },
+    "route_to_progress_seconds": {
+      "mean": 0.04164692366666667,
+      "minimum": 0.041037965,
+      "maximum": 0.042038296,
+      "count": 3
+    }
+  }
+]

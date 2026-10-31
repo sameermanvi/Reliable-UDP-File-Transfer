@@ -31,9 +31,21 @@ results retain their original source identity; they do not validate new probes.
    historical-integration and pending-Linux-plan bundles; keep historical source
    identities intact. `scripts/plot_timeline.py` marks first useful post-route ACK.
 
-Implemented and locally verified: steps 1–2 analysis, probe/policy/handler logic,
-scenario/evaluation/demo code and documentation. Executed: 48 local tests and 60
-hash-verified local transfers. Pending: final real Mininet/OVS runs for steps 2–5.
+Verified complete for steps 1–5: final Linux Docker evaluation passed 48 tests
+and all 180 trial expectations across three repeats (132 hash-matched successes,
+48 expected static failures). Both initial branches recover; probe soft degradation
+and loss/reordering/flaps pass. All 57 recovered trial rows have event-supported
+link_down → route_ready → useful contiguous ACK advancement. Censored and
+not-applicable measurements remain null. See [verification](VALIDATION.md#final-linux-docker-validation--verified-31-october-2026)
+and [manifest](../results/rubric-final/evaluation.json).
+
+This closes the final Mininet/userspace OVS evidence gap on the Ubuntu 22.04
+container inside the Ubuntu 26.04 ARM64 VM. It does not validate kernel OVS.
+Step 6 evidence status is synchronized in README, VALIDATION, KEY_RESULTS and
+this checklist only; other listed documents were not re-audited or changed.
+Step 7's existing historical indexing is preserved; the entire final evaluation
+bundle is retained without changing .gitignore. Preflight is excluded from the
+final bundle counts.
 
 Retained transport upgrade files from the preceding implementation are also part
 of the final diff: `src/server.c` (bitmap negotiation/ACKs and receiver events),
