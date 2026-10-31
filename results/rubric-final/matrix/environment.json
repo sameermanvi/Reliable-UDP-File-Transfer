@@ -1,0 +1,56 @@
+{
+  "scenarios": [
+    "normal",
+    "loss",
+    "link-failure"
+  ],
+  "modes": [
+    "static",
+    "failover"
+  ],
+  "initial_path": "upper",
+  "failure_path": "active",
+  "reorder": 20,
+  "degrade_loss": 35,
+  "rtos": [
+    "fixed",
+    "adaptive"
+  ],
+  "sacks": [
+    "plain",
+    "bitmap"
+  ],
+  "ccs": [
+    "off"
+  ],
+  "loss_rates": [
+    0.0,
+    2.0
+  ],
+  "failure_times": [
+    0.5,
+    1.5
+  ],
+  "flap_periods": [
+    1,
+    4
+  ],
+  "repeats": 3,
+  "flows": 1,
+  "file_size": 8388608,
+  "bandwidth": 10,
+  "delay": "5ms",
+  "loss": 2,
+  "fail_after": 1,
+  "timeout": 180.0,
+  "datapath": "user",
+  "output": "/project/results/rubric-final/matrix",
+  "keep_files": false,
+  "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+  "platform": "Linux-7.0.0-42-generic-aarch64-with-glibc2.35",
+  "controller": "os-ken 2.11.2",
+  "source_sha256": "0f108bbfa79d18e55cc93ed972cf72f6d7fd0acc04cde3d85bd1862a58b67f33",
+  "file_random_seed": 243,
+  "ovs_version": "ovs-vsctl (Open vSwitch) 2.17.12\nDB Schema 8.3.0",
+  "generated_at": "2026-10-31T13:29:28Z"
+}

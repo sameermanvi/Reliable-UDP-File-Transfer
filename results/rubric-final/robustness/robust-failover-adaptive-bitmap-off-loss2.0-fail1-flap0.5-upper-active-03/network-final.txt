@@ -1,0 +1,141 @@
+Switch s1
+ cookie=0x5255445000000001, duration=38.969s, table=0, n_packets=82, n_bytes=4920, priority=200,in_port="s1-eth2",dl_type=0x88b5 actions=CONTROLLER:65535
+ cookie=0x5255445000000001, duration=38.969s, table=0, n_packets=150, n_bytes=9000, priority=200,in_port="s1-eth3",dl_type=0x88b5 actions=CONTROLLER:65535
+ cookie=0x5255445000000001, duration=37.596s, table=0, n_packets=23462, n_bytes=25570552, priority=100,ip,in_port="s1-eth1" actions=output:"s1-eth3"
+ cookie=0x5255445000000001, duration=37.596s, table=0, n_packets=4, n_bytes=168, priority=100,arp,in_port="s1-eth1" actions=output:"s1-eth3"
+ cookie=0x5255445000000001, duration=37.596s, table=0, n_packets=728, n_bytes=53888, priority=100,ip,in_port="s1-eth2" actions=output:"s1-eth1"
+ cookie=0x5255445000000001, duration=37.596s, table=0, n_packets=1, n_bytes=42, priority=100,arp,in_port="s1-eth2" actions=output:"s1-eth1"
+ cookie=0x5255445000000001, duration=37.596s, table=0, n_packets=20924, n_bytes=1548368, priority=100,ip,in_port="s1-eth3" actions=output:"s1-eth1"
+ cookie=0x5255445000000001, duration=37.596s, table=0, n_packets=3, n_bytes=126, priority=100,arp,in_port="s1-eth3" actions=output:"s1-eth1"
+ cookie=0x5255445000000001, duration=38.969s, table=0, n_packets=114, n_bytes=10024, priority=0 actions=drop
+
+Interface s1-eth1
+qdisc noqueue 0: root refcnt 2 
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+
+Interface s1-eth2
+qdisc htb 5: root refcnt 5 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+ Sent 864200 bytes 966 pkt (dropped 20, overlimits 671 requeues 0) 
+ backlog 60b 1p requeues 0
+qdisc netem 10: parent 5:1 limit 1000 delay 5ms loss 2%
+ Sent 864200 bytes 966 pkt (dropped 20, overlimits 0 requeues 0) 
+ backlog 60b 1p requeues 0
+
+Interface s1-eth3
+qdisc htb 5: root refcnt 5 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+ Sent 24183818 bytes 22340 pkt (dropped 469, overlimits 19410 requeues 0) 
+ backlog 60b 1p requeues 0
+qdisc netem 10: parent 5:1 limit 1000 delay 5ms loss 2%
+ Sent 24183818 bytes 22340 pkt (dropped 469, overlimits 0 requeues 0) 
+ backlog 60b 1p requeues 0
+
+Switch s2
+ cookie=0x5255445000000001, duration=38.990s, table=0, n_packets=87, n_bytes=5220, priority=200,in_port="s2-eth1",dl_type=0x88b5 actions=output:"s2-eth2"
+ cookie=0x5255445000000001, duration=38.990s, table=0, n_packets=90, n_bytes=5400, priority=200,in_port="s2-eth2",dl_type=0x88b5 actions=output:"s2-eth1"
+ cookie=0x5255445000000001, duration=37.618s, table=0, n_packets=782, n_bytes=850376, priority=100,ip,in_port="s2-eth1" actions=output:"s2-eth2"
+ cookie=0x5255445000000001, duration=37.618s, table=0, n_packets=1, n_bytes=42, priority=100,arp,in_port="s2-eth1" actions=output:"s2-eth2"
+ cookie=0x5255445000000001, duration=37.618s, table=0, n_packets=745, n_bytes=55146, priority=100,ip,in_port="s2-eth2" actions=output:"s2-eth1"
+ cookie=0x5255445000000001, duration=37.618s, table=0, n_packets=1, n_bytes=42, priority=100,arp,in_port="s2-eth2" actions=output:"s2-eth1"
+ cookie=0x5255445000000001, duration=38.990s, table=0, n_packets=104, n_bytes=9208, priority=0 actions=drop
+
+Interface s2-eth1
+qdisc htb 5: root refcnt 5 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+ Sent 67632 bytes 910 pkt (dropped 18, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc netem 10: parent 5:1 limit 1000 delay 5ms loss 2%
+ Sent 67632 bytes 910 pkt (dropped 18, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+
+Interface s2-eth2
+qdisc htb 5: root refcnt 5 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+ Sent 842084 bytes 865 pkt (dropped 13, overlimits 529 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc netem 10: parent 5:1 limit 1000 delay 5ms loss 2%
+ Sent 842084 bytes 865 pkt (dropped 13, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+
+Switch s3
+ cookie=0x5255445000000001, duration=39.003s, table=0, n_packets=150, n_bytes=9000, priority=200,in_port="s3-eth1",dl_type=0x88b5 actions=output:"s3-eth2"
+ cookie=0x5255445000000001, duration=39.003s, table=0, n_packets=150, n_bytes=9000, priority=200,in_port="s3-eth2",dl_type=0x88b5 actions=output:"s3-eth1"
+ cookie=0x5255445000000001, duration=37.630s, table=0, n_packets=22179, n_bytes=24174086, priority=100,ip,in_port="s3-eth1" actions=output:"s3-eth2"
+ cookie=0x5255445000000001, duration=37.630s, table=0, n_packets=3, n_bytes=126, priority=100,arp,in_port="s3-eth1" actions=output:"s3-eth2"
+ cookie=0x5255445000000001, duration=37.630s, table=0, n_packets=21367, n_bytes=1581150, priority=100,ip,in_port="s3-eth2" actions=output:"s3-eth1"
+ cookie=0x5255445000000001, duration=37.630s, table=0, n_packets=3, n_bytes=126, priority=100,arp,in_port="s3-eth2" actions=output:"s3-eth1"
+ cookie=0x5255445000000001, duration=39.003s, table=0, n_packets=16, n_bytes=1272, priority=0 actions=drop
+
+Interface s3-eth1
+qdisc htb 5: root refcnt 5 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+ Sent 1558180 bytes 21086 pkt (dropped 444, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc netem 10: parent 5:1 limit 1000 delay 5ms loss 2%
+ Sent 1558180 bytes 21086 pkt (dropped 444, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+
+Interface s3-eth2
+qdisc htb 5: root refcnt 5 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+ Sent 23753272 bytes 21945 pkt (dropped 396, overlimits 16281 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc netem 10: parent 5:1 limit 1000 delay 5ms loss 2%
+ Sent 23753272 bytes 21945 pkt (dropped 396, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+
+Switch s4
+ cookie=0x5255445000000001, duration=39.015s, table=0, n_packets=87, n_bytes=5220, priority=200,in_port="s4-eth1",dl_type=0x88b5 actions=CONTROLLER:65535
+ cookie=0x5255445000000001, duration=39.015s, table=0, n_packets=149, n_bytes=8940, priority=200,in_port="s4-eth2",dl_type=0x88b5 actions=CONTROLLER:65535
+ cookie=0x5255445000000001, duration=37.641s, table=0, n_packets=769, n_bytes=836206, priority=100,ip,in_port="s4-eth1" actions=output:"s4-eth3"
+ cookie=0x5255445000000001, duration=37.641s, table=0, n_packets=1, n_bytes=42, priority=100,arp,in_port="s4-eth1" actions=output:"s4-eth3"
+ cookie=0x5255445000000001, duration=37.641s, table=0, n_packets=21784, n_bytes=23743536, priority=100,ip,in_port="s4-eth2" actions=output:"s4-eth3"
+ cookie=0x5255445000000001, duration=37.641s, table=0, n_packets=3, n_bytes=126, priority=100,arp,in_port="s4-eth2" actions=output:"s4-eth3"
+ cookie=0x5255445000000001, duration=37.641s, table=0, n_packets=22553, n_bytes=1668930, priority=100,ip,in_port="s4-eth3" actions=output:"s4-eth2"
+ cookie=0x5255445000000001, duration=37.641s, table=0, n_packets=4, n_bytes=168, priority=100,arp,in_port="s4-eth3" actions=output:"s4-eth2"
+ cookie=0x5255445000000001, duration=39.015s, table=0, n_packets=23, n_bytes=1842, priority=0 actions=drop
+
+Interface s4-eth1
+qdisc htb 5: root refcnt 5 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+ Sent 61134 bytes 843 pkt (dropped 21, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc netem 10: parent 5:1 limit 1000 delay 5ms loss 2%
+ Sent 61134 bytes 843 pkt (dropped 21, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+
+Interface s4-eth2
+qdisc htb 5: root refcnt 5 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+ Sent 1591032 bytes 21530 pkt (dropped 427, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+qdisc netem 10: parent 5:1 limit 1000 delay 5ms loss 2%
+ Sent 1591032 bytes 21530 pkt (dropped 427, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+
+Interface s4-eth3
+qdisc noqueue 0: root refcnt 2 
+ Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0
+
+Host h1 protocol counters
+Ip: Forwarding DefaultTTL InReceives InHdrErrors InAddrErrors ForwDatagrams InUnknownProtos InDiscards InDelivers OutRequests OutDiscards OutNoRoutes ReasmTimeout ReasmReqds ReasmOKs ReasmFails FragOKs FragFails FragCreates OutTransmits
+Ip: 1 64 21652 0 0 0 0 0 21652 23462 0 0 0 0 0 0 0 0 0 23462
+Icmp: InMsgs InErrors InCsumErrors InDestUnreachs InTimeExcds InParmProbs InSrcQuenchs InRedirects InEchos InEchoReps InTimestamps InTimestampReps InAddrMasks InAddrMaskReps OutMsgs OutErrors OutRateLimitGlobal OutRateLimitHost OutDestUnreachs OutTimeExcds OutParmProbs OutSrcQuenchs OutRedirects OutEchos OutEchoReps OutTimestamps OutTimestampReps OutAddrMasks OutAddrMaskReps
+Icmp: 1 0 0 0 0 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1 0 0 0 0 0
+IcmpMsg: InType0 OutType8
+IcmpMsg: 1 1
+Tcp: RtoAlgorithm RtoMin RtoMax MaxConn ActiveOpens PassiveOpens AttemptFails EstabResets CurrEstab InSegs OutSegs RetransSegs InErrs OutRsts InCsumErrors
+Tcp: 1 200 120000 -1 0 0 0 0 0 0 0 0 0 0 0
+Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors InCsumErrors IgnoredMulti MemErrors
+Udp: 21651 0 0 23461 0 0 0 0 0
+UdpLite: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors InCsumErrors IgnoredMulti MemErrors
+UdpLite: 0 0 0 0 0 0 0 0 0
+
+Host h2 protocol counters
+Ip: Forwarding DefaultTTL InReceives InHdrErrors InAddrErrors ForwDatagrams InUnknownProtos InDiscards InDelivers OutRequests OutDiscards OutNoRoutes ReasmTimeout ReasmReqds ReasmOKs ReasmFails FragOKs FragFails FragCreates OutTransmits
+Ip: 1 64 22553 0 0 0 0 0 22553 22553 0 0 0 0 0 0 0 0 0 22553
+Icmp: InMsgs InErrors InCsumErrors InDestUnreachs InTimeExcds InParmProbs InSrcQuenchs InRedirects InEchos InEchoReps InTimestamps InTimestampReps InAddrMasks InAddrMaskReps OutMsgs OutErrors OutRateLimitGlobal OutRateLimitHost OutDestUnreachs OutTimeExcds OutParmProbs OutSrcQuenchs OutRedirects OutEchos OutEchoReps OutTimestamps OutTimestampReps OutAddrMasks OutAddrMaskReps
+Icmp: 1 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 1 0 0 0 0
+IcmpMsg: InType8 OutType0
+IcmpMsg: 1 1
+Tcp: RtoAlgorithm RtoMin RtoMax MaxConn ActiveOpens PassiveOpens AttemptFails EstabResets CurrEstab InSegs OutSegs RetransSegs InErrs OutRsts InCsumErrors
+Tcp: 1 200 120000 -1 0 0 0 0 0 0 0 0 0 0 0
+Udp: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors InCsumErrors IgnoredMulti MemErrors
+Udp: 22552 0 0 22552 0 0 0 0 0
+UdpLite: InDatagrams NoPorts InErrors OutDatagrams RcvbufErrors SndbufErrors InCsumErrors IgnoredMulti MemErrors
+UdpLite: 0 0 0 0 0 0 0 0 0

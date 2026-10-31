@@ -14,7 +14,7 @@ verifies the completed file with SHA-256.
 - Monotonic JSONL events, joined recovery timelines, and repeatable experiments.
 
 **Verified locally:** 48 automated tests and 60/60 hash-verified transfers.
-**Pending:** final Mininet/OVS validation of the new probe controller on Linux.
+**Validated:** Linux Docker/userspace OVS, three repeats: 180/180 expectations met, 132 hash-matched transfers and 48 expected static failures ([evidence](results/rubric-final/evaluation.json)).
 See [Key Results](docs/KEY_RESULTS.md) for measurements and their limits.
 
 ## Build and test
@@ -119,7 +119,7 @@ python3 scripts/evaluate.py --output results/local-check --local-only
 The final local bundle has **48 passing tests and 60/60 hash-verified transfers**:
 [validation](docs/VALIDATION.md), [Key Results](docs/KEY_RESULTS.md),
 [raw local metrics](results/rubric-final-native/transport/metrics.csv).
-Final probe-controller/Mininet measurements are **pending Linux execution**.
+Final probe-controller/Mininet validation **passed in Ubuntu 22.04 Docker with userspace OVS**: [180-trial evidence](results/rubric-final/evaluation.json).
 The retained [historical joined timeline](results/rubric-integration-history/timeline.svg)
 demonstrates the earlier controller's real socket–SDN integration; it does not
 validate the new probe controller. Do not mix historical and current source runs.

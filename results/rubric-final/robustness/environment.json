@@ -1,0 +1,46 @@
+{
+  "scenarios": [
+    "robust",
+    "soft-degradation"
+  ],
+  "modes": [
+    "failover"
+  ],
+  "initial_path": "upper",
+  "failure_path": "active",
+  "reorder": 20.0,
+  "degrade_loss": 35,
+  "rtos": [
+    "adaptive"
+  ],
+  "sacks": [
+    "bitmap"
+  ],
+  "ccs": [
+    "off"
+  ],
+  "loss_rates": null,
+  "failure_times": null,
+  "flap_periods": [
+    0.5,
+    2.0
+  ],
+  "repeats": 3,
+  "flows": 1,
+  "file_size": 16777216,
+  "bandwidth": 10,
+  "delay": "5ms",
+  "loss": 2.0,
+  "fail_after": 1,
+  "timeout": 180.0,
+  "datapath": "user",
+  "output": "/project/results/rubric-final/robustness",
+  "keep_files": false,
+  "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+  "platform": "Linux-7.0.0-42-generic-aarch64-with-glibc2.35",
+  "controller": "os-ken 2.11.2",
+  "source_sha256": "0f108bbfa79d18e55cc93ed972cf72f6d7fd0acc04cde3d85bd1862a58b67f33",
+  "file_random_seed": 243,
+  "ovs_version": "ovs-vsctl (Open vSwitch) 2.17.12\nDB Schema 8.3.0",
+  "generated_at": "2026-10-31T14:32:17Z"
+}

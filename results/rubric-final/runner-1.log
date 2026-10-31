@@ -1,0 +1,20 @@
+make: Entering directory '/project/src'
+make: Nothing to be done for 'all'.
+make: Leaving directory '/project/src'
+Running link-failure failover adaptive bitmap cc=off repeat=1
+*** Error setting resource limits. Mininet's performance may be affected.
+ROUTE READY path=lower cause=startup monotonic_ns=8541360087573
+LINK DOWN lower; transfer remains active
+ROUTE READY path=upper cause=link_down monotonic_ns=8542597416447
+  success=True sha256_match=True recovery=0.044424087s goodput=9.245 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=lower cause=startup monotonic_ns=8555934135389
+LINK DOWN lower; transfer remains active
+ROUTE READY path=upper cause=link_down monotonic_ns=8557173607343
+  success=True sha256_match=True recovery=0.044867355s goodput=9.245 expected=True error=
+Running link-failure failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=lower cause=startup monotonic_ns=8570493464194
+LINK DOWN lower; transfer remains active
+ROUTE READY path=upper cause=link_down monotonic_ns=8571743211200
+  success=True sha256_match=True recovery=0.045366234s goodput=9.246 expected=True error=
+Results: /project/results/rubric-final/lower-recovery/metrics.csv

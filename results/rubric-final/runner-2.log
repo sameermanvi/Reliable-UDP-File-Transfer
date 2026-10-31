@@ -1,0 +1,55 @@
+make: Entering directory '/project/src'
+make: Nothing to be done for 'all'.
+make: Leaving directory '/project/src'
+Running robust failover adaptive bitmap cc=off repeat=1
+*** Error setting resource limits. Mininet's performance may be affected.
+ROUTE READY path=upper cause=startup monotonic_ns=8585945303596
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8587334102361
+  success=True sha256_match=True recovery=0.019067009s goodput=4.198 expected=True error=
+Running robust failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8625519635234
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8626893077665
+  success=True sha256_match=True recovery=0.020560434s goodput=4.169 expected=True error=
+Running robust failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8665406625288
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8666778250227
+  success=True sha256_match=True recovery=0.019134618s goodput=4.172 expected=True error=
+Running robust failover adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8705439773106
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8706816696244
+ROUTE READY path=upper cause=health_update monotonic_ns=8735295147065
+ROUTE READY path=lower cause=link_down monotonic_ns=8735301646228
+  success=True sha256_match=True recovery=0.02179269s goodput=4.091 expected=True error=
+Running robust failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8745792112382
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8747164815210
+  success=True sha256_match=True recovery=0.014075948s goodput=4.126 expected=True error=
+Running robust failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8785912739492
+LINK DOWN upper; transfer remains active
+ROUTE READY path=lower cause=link_down monotonic_ns=8787305357976
+  success=True sha256_match=True recovery=0.079043312s goodput=4.163 expected=True error=
+Running soft-degradation failover adaptive bitmap cc=off repeat=1
+ROUTE READY path=upper cause=startup monotonic_ns=8825691416079
+SOFT DEGRADATION upper: 35% link loss
+ROUTE READY path=lower cause=health_update monotonic_ns=8827862269579
+HEALTH ROUTE READY lower
+  success=True sha256_match=True recovery=Nones goodput=8.788 expected=True error=
+Running soft-degradation failover adaptive bitmap cc=off repeat=2
+ROUTE READY path=upper cause=startup monotonic_ns=8848434766715
+SOFT DEGRADATION upper: 35% link loss
+ROUTE READY path=lower cause=health_update monotonic_ns=8850636987034
+HEALTH ROUTE READY lower
+  success=True sha256_match=True recovery=Nones goodput=8.679 expected=True error=
+Running soft-degradation failover adaptive bitmap cc=off repeat=3
+ROUTE READY path=upper cause=startup monotonic_ns=8871434710779
+SOFT DEGRADATION upper: 35% link loss
+ROUTE READY path=lower cause=health_update monotonic_ns=8874113987436
+HEALTH ROUTE READY lower
+  success=True sha256_match=True recovery=Nones goodput=8.432 expected=True error=
+Results: /project/results/rubric-final/robustness/metrics.csv
