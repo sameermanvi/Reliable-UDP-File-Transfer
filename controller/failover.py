@@ -12,6 +12,7 @@ import sys
 import time
 
 try:
+    from os_ken.lib import hub
     from os_ken.base import app_manager
     from os_ken.controller import ofp_event
     from os_ken.controller.handler import (
@@ -20,6 +21,7 @@ try:
     from os_ken.ofproto import ofproto_v1_3
     AppBase = app_manager.OSKenApp
 except ImportError:
+    from ryu.lib import hub
     from ryu.base import app_manager
     from ryu.controller import ofp_event
     from ryu.controller.handler import (
@@ -31,6 +33,7 @@ except ImportError:
 # The manager may load this file by path without adding the repository root.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from controller.routing import PathPolicy, SWITCHES, forwarding_rules
+from controller.probes import ProbeTracker, ENDPOINTS, ETHERTYPE
 
 
 COOKIE = 0x5255445000000001
@@ -41,7 +44,7 @@ class FailoverController(AppBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.policy = PathPolicy(os.environ.get("RUDP_MODE", "failover"))
+        self.policy = PathPolicy(os.environ.get("RUDP_MODE", "failover"), os.environ.get("RUDP_INITIAL_PATH", "upper"))
         self.datapaths = {}
         self.discovered = set()
         self.started = False
@@ -53,6 +56,45 @@ class FailoverController(AppBase):
         event_path = os.environ.get("RUDP_EVENT_LOG")
         self.event_file = open(event_path, "a", buffering=1) if event_path else None
         self._event("controller_started", mode=self.policy.mode)
+        self.probes = ProbeTracker()
+        self.last_route_change_ns = 0
+        self.monitor = hub.spawn(self._monitor)
+
+    def _refresh_health(self, now):
+        self.policy.health = self.probes.scores(now)
+
+    def _monitor(self):
+        while True:
+            now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+            for observation in self.probes.expire(now):
+                self._event("probe_result", **observation)
+            self._refresh_health(now)
+            if self.started:
+                self._event("path_health", scores=self.policy.health,
+                            source="bidirectional_ethernet_probes", samples=self.probes.samples_as_json(),
+                            hysteresis=.02, hold_down_seconds=2)
+                self._reconcile("health_update")
+                for (path, direction), (source, out_port, _, _) in ENDPOINTS.items():
+                    if not self.policy.available(path):
+                        continue
+                    dp = self.datapaths.get(source)
+                    if dp is None:
+                        continue
+                    frame = self.probes.send(path, direction, now)
+                    dp.send_msg(dp.ofproto_parser.OFPPacketOut(
+                        datapath=dp, buffer_id=dp.ofproto.OFP_NO_BUFFER,
+                        in_port=dp.ofproto.OFPP_CONTROLLER,
+                        actions=[dp.ofproto_parser.OFPActionOutput(out_port)], data=frame))
+            hub.sleep(.25)
+
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    def probe_received(self, event):
+        msg = event.msg
+        now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+        observation = self.probes.receive(bytes(msg.data), msg.datapath.id, msg.match.get("in_port"), now)
+        if observation:
+            self._event("probe_result", **observation)
+            self._refresh_health(now)
 
     def _event(self, event, **fields):
         record = dict(event=event, monotonic_ns=time.clock_gettime_ns(time.CLOCK_MONOTONIC),
@@ -69,6 +111,7 @@ class FailoverController(AppBase):
         if dp.id not in SWITCHES:
             self._event("unexpected_switch", dpid=dp.id)
             return
+        self.probes.invalidate_switch(dp.id)
         self.datapaths[dp.id] = dp
         self.policy.connected.add(dp.id)
         self.discovered.discard(dp.id)
@@ -82,6 +125,16 @@ class FailoverController(AppBase):
         dp.send_msg(parser.OFPFlowMod(
             datapath=dp, cookie=COOKIE, priority=0,
             match=parser.OFPMatch(), instructions=[]))
+        # Probe rules are independent of the chosen application path. Transit
+        # crosses the branch; edge ingress punts to the controller, never hosts.
+        probe_ports = (1, 2) if dp.id in (2, 3, 4) else (2, 3)
+        for in_port in probe_ports:
+            out_port = 3 - in_port if dp.id in (2, 3) else ofp.OFPP_CONTROLLER
+            action = parser.OFPActionOutput(out_port, ofp.OFPCML_NO_BUFFER)
+            dp.send_msg(parser.OFPFlowMod(
+                datapath=dp, cookie=COOKIE, priority=200,
+                match=parser.OFPMatch(in_port=in_port, eth_type=ETHERTYPE),
+                instructions=[parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [action])]))
         dp.send_msg(parser.OFPPortDescStatsRequest(dp, 0))
         self._event("switch_connected", dpid=dp.id)
 
@@ -115,6 +168,8 @@ class FailoverController(AppBase):
         if previous == up:
             return
         cause = "link_up" if up else "link_down"
+        self.probes.invalidate_port(dp.id, msg.desc.port_no)
+        self._refresh_health(time.clock_gettime_ns(time.CLOCK_MONOTONIC))
         self._event(cause, dpid=dp.id, port=msg.desc.port_no)
         self._reconcile(cause)
 
@@ -123,6 +178,7 @@ class FailoverController(AppBase):
         dp = event.datapath
         if self.datapaths.get(dp.id) is not dp:
             return
+        self.probes.invalidate_switch(dp.id)
         del self.datapaths[dp.id]
         self.policy.connected.discard(dp.id)
         self.discovered.discard(dp.id)
@@ -137,13 +193,22 @@ class FailoverController(AppBase):
         path = self.policy.choose(self.path)
         if not force and path == self.path:
             return
+        now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+        if cause == "health_update" and path != self.path:
+            if self.pending or now - self.last_route_change_ns < 2_000_000_000:
+                self._event("route_decision", selected=self.path, candidate=path, reason="hold_down_or_barrier",
+                            health=self.policy.health)
+                return
+        self.last_route_change_ns = now
+        self._event("route_decision", previous=self.path, selected=path, reason=cause,
+                    health=self.policy.health)
         self.path = path
         self.generation += 1
         self.cause = cause
         self.pending.clear()
         self.failed_generation = False
         self._event("route_installing", path=path, cause=cause,
-                    generation=self.generation)
+                    generation=self.generation, health=self.policy.health)
         rules = forwarding_rules(path)
         # Each ADD replaces the previous identical match/priority atomically
         # within a switch. During an update, asymmetrical forward/reverse paths
@@ -182,6 +247,7 @@ class FailoverController(AppBase):
                     error_type=msg.type, code=msg.code, xid=msg.xid)
 
     def close(self):
+        hub.kill(self.monitor)
         if self.event_file:
             self.event_file.close()
         super().close()

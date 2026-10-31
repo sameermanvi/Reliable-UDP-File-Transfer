@@ -1,0 +1,2 @@
+# Keep raw experiment output intact, including CSV CRLF and compiler spacing.
+results/** -whitespace

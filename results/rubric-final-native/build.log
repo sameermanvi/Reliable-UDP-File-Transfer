@@ -1,0 +1,5 @@
+cc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -D_POSIX_C_SOURCE=200809L  -c -o client.o client.c
+cc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -D_POSIX_C_SOURCE=200809L  -c -o utils.o utils.c
+cc  -o client client.o utils.o 
+cc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -D_POSIX_C_SOURCE=200809L  -c -o server.o server.c
+cc  -o server server.o utils.o 

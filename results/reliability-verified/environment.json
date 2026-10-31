@@ -1,0 +1,22 @@
+{
+  "source_sha256": "d96769fae4621c53d3fc01c0a1170a4643c67dca70ade4781e2336beb5d995be",
+  "delays_ms": [
+    5,
+    130
+  ],
+  "repeats": 3,
+  "size": 65536,
+  "clock": "monotonic",
+  "scope": "localhost deterministic proxy; not Mininet",
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "python": "3.15.2 (main, Oct 25 2026, 16:57:51) [Clang 21.0.0 (clang-2100.3.34.2)]",
+  "build": "make (C11, -O2, -Wall -Wextra -Wpedantic)",
+  "data_plane_sha256": {
+    "src/client.c": "075480eaf2ae301796b739bb6943f7b267c67f392278f87921f060be46903650",
+    "src/packet.h": "6781c80acbc15aa7e10d87428494702345d57e89f1e664a5fbf98f0cb1eba509",
+    "src/server.c": "4a5f78dd2355ead49d2e5249a0333ee4b29537e65ac5261f48e426c8570a2db5",
+    "src/utils.c": "cfdec4db555288cd6f803d70f302cbfe7b810337cc66aa606c38a6f7cad3f2e9",
+    "src/utils.h": "aabdda48ff6874c1f17e410d03164bdfba6d172c0fea6e946dd7a490855537d4"
+  },
+  "provenance_note": "Original source_sha256 captured before trials. Subsequent SDN analysis, plotting, tests and documentation edits do not change measured C endpoints. Per-file C hashes recorded after trials."
+}

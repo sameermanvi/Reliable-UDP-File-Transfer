@@ -1,0 +1,81 @@
+/Library/Developer/CommandLineTools/usr/bin/make -C src
+make[1]: Nothing to be done for `all'.
+ln -sf src/client client
+ln -sf src/server server
+python3 tests/test_protocol.py
+test_argument_validation (__main__.ProtocolTests.test_argument_validation) ... ok
+test_file_sizes_and_faults (__main__.ProtocolTests.test_file_sizes_and_faults) ...   verified 0 bytes, faults=False
+  verified 1 bytes, faults=False
+  verified 1023 bytes, faults=False
+  verified 1024 bytes, faults=False
+  verified 1025 bytes, faults=False
+  verified 32768 bytes, faults=False
+  verified 32769 bytes, faults=False
+  verified 1048576 bytes, faults=False
+  verified 32769 bytes, faults=True
+  verified 262267 bytes, faults=True
+ok
+test_missing_fin_is_failure (__main__.ProtocolTests.test_missing_fin_is_failure) ... ok
+test_progress_log_never_overwrites_input (__main__.ProtocolTests.test_progress_log_never_overwrites_input) ... ok
+test_receiver_validation_and_session_isolation (__main__.ProtocolTests.test_receiver_validation_and_session_isolation) ... ok
+test_sack_window_edges_and_cumulative_prefix (__main__.ProtocolTests.test_sack_window_edges_and_cumulative_prefix) ... ok
+test_unavailable_server_is_bounded_failure (__main__.ProtocolTests.test_unavailable_server_is_bounded_failure) ... ok
+test_whole_file_checksum_rejection (__main__.ProtocolTests.test_whole_file_checksum_rejection) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 37.446s
+
+OK
+python3 tests/test_transport.py
+test_clean_rtt_floor_and_cwnd_cap (__main__.TransportTests.test_clean_rtt_floor_and_cwnd_cap) ... ok
+test_fixed_mode_and_legacy_wire (__main__.TransportTests.test_fixed_mode_and_legacy_wire) ... ok
+test_invalid_rto_setting (__main__.TransportTests.test_invalid_rto_setting) ... ok
+test_karn_and_backoff_cap (__main__.TransportTests.test_karn_and_backoff_cap) ... ok
+test_negotiation_invalid_sack_and_duplicate_ack_evidence (__main__.TransportTests.test_negotiation_invalid_sack_and_duplicate_ack_evidence) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 3.657s
+
+OK
+python3 tests/test_probes.py
+test_both_branches_and_both_directions (__main__.ProbeTests.test_both_branches_and_both_directions) ... ok
+test_repeated_hard_failures_restore_either_path (__main__.ProbeTests.test_repeated_hard_failures_restore_either_path) ... ok
+test_soft_degradation_hysteresis_and_recovery (__main__.ProbeTests.test_soft_degradation_hysteresis_and_recovery) ... ok
+test_wrong_session_truncated_late_and_counters (__main__.ProbeTests.test_wrong_session_truncated_late_and_counters) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.000s
+
+OK
+python3 tests/test_openflow.py
+test_features_installs_probe_transit_and_edge_punts (__main__.OpenFlowTests.test_features_installs_probe_transit_and_edge_punts) ... ok
+test_old_barrier_never_marks_new_generation_ready (__main__.OpenFlowTests.test_old_barrier_never_marks_new_generation_ready) ... ok
+test_soft_hold_down_never_blocks_hard_failure (__main__.OpenFlowTests.test_soft_hold_down_never_blocks_hard_failure) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.007s
+
+OK
+python3 tests/test_controller.py
+............
+----------------------------------------------------------------------
+Ran 12 tests in 0.000s
+
+OK
+python3 tests/test_metrics.py
+...........
+----------------------------------------------------------------------
+Ran 11 tests in 0.001s
+
+OK
+python3 tests/test_local.py
+test_binary_sizes (__main__.LocalTests.test_binary_sizes) ... ok
+test_existing_output_replaced_only_after_verification (__main__.LocalTests.test_existing_output_replaced_only_after_verification) ... ok
+test_receiver_reordering_duplicates_and_bad_packets (__main__.LocalTests.test_receiver_reordering_duplicates_and_bad_packets) ... ok
+test_sender_retries_only_missing_ack (__main__.LocalTests.test_sender_retries_only_missing_ack) ... ok
+test_whole_file_crc_rejection (__main__.LocalTests.test_whole_file_crc_rejection) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 26.454s
+
+OK

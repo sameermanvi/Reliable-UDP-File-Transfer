@@ -10,6 +10,9 @@ struct send_slot {
     uint64_t sent_at;
     unsigned int retries;
     int acknowledged;
+    unsigned int timeout_ms;
+    unsigned int gap_reports;
+    int fast_sent;
 };
 
 struct statistics {
@@ -66,9 +69,15 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                      struct statistics *stats, FILE *progress)
 {
     struct send_slot slots[WINDOW_SIZE] = {0};
-    uint32_t base = 0, next = 0;
+    uint32_t base = 0, next = 0, recovery_end = 0, backoff_end = 0;
+    const char *rto_mode = getenv("RUDP_RTO");
+    int adaptive = rto_mode ? strcmp(rto_mode, "adaptive") == 0 : option_enabled("RUDP_ADAPTIVE_RTO");
+    int congestion = option_enabled("RUDP_CC");
+    double srtt = 0, variance = 0, rto = RETRY_TIMEOUT_MS;
+    double cwnd = congestion ? 4 : WINDOW_SIZE, threshold = 16;
+    progress_event(progress, "cwnd_change", id, 0, 0, cwnd, "initial");
     while (base < packet_count) {
-        while (next < packet_count && next - base < WINDOW_SIZE) {
+        while (next < packet_count && next - base < WINDOW_SIZE && next - base < (uint32_t)cwnd) {
             struct send_slot *slot = &slots[next % WINDOW_SIZE];
             memset(slot, 0, sizeof(*slot));
             slot->packet.type = PACKET_DATA;
@@ -85,19 +94,21 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                 return -1;
             }
             slot->sent_at = monotonic_ms();
+            slot->timeout_ms = (unsigned int)rto;
+            progress_event(progress, "send", id, next, base, rto, "original");
             ++stats->data_sends;
             ++next;
         }
 
         /* Poll only until the oldest outstanding packet's deadline. */
         uint64_t now = monotonic_ms();
-        unsigned int wait_ms = RETRY_TIMEOUT_MS;
+        unsigned int wait_ms = 2000;
         for (uint32_t sequence = base; sequence < next; ++sequence) {
             struct send_slot *slot = &slots[sequence % WINDOW_SIZE];
             if (slot->acknowledged)
                 continue;
             uint64_t elapsed = now - slot->sent_at;
-            if (elapsed >= RETRY_TIMEOUT_MS) {
+            if (elapsed >= slot->timeout_ms) {
                 if (slot->retries >= MAX_RETRIES) {
                     fprintf(stderr, "Retry limit reached for DATA %" PRIu32 ".\n", sequence);
                     return -1;
@@ -106,13 +117,27 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                     perror("retransmit DATA");
                     return -1;
                 }
+                progress_event(progress, "loss_detected", id, sequence, base, slot->timeout_ms, "timeout");
+                if (congestion && (recovery_end == 0 || base >= recovery_end)) {
+                    threshold = cwnd / 2 < 2 ? 2 : cwnd / 2;
+                    cwnd = 1;
+                    recovery_end = next;
+                    progress_event(progress, "cwnd_change", id, sequence, base, cwnd, "timeout");
+                }
+                if (adaptive && (backoff_end == 0 || base >= backoff_end)) {
+                    rto = rto < 1000 ? rto * 2 : 2000;
+                    backoff_end = next;
+                    progress_event(progress, "rto_update", id, sequence, base, rto, "timeout_backoff");
+                }
                 slot->sent_at = monotonic_ms();
+                if (adaptive) slot->timeout_ms = slot->timeout_ms < 1000 ? slot->timeout_ms * 2 : 2000;
+                progress_event(progress, "retransmit", id, sequence, base, slot->timeout_ms, "timeout");
                 ++slot->retries;
                 ++stats->data_sends;
                 ++stats->data_retries;
                 elapsed = 0;
             }
-            unsigned int left = RETRY_TIMEOUT_MS - (unsigned int)elapsed;
+            unsigned int left = slot->timeout_ms - (unsigned int)elapsed;
             if (left < wait_ms)
                 wait_ms = left;
         }
@@ -128,20 +153,89 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                 fprintf(stderr, "Server rejected transfer: %.*s\n", (int)ack.length, ack.payload);
                 return -1;
             }
-            if (ack.type == PACKET_ACK && ack.length == 0 &&
-                ack.sequence >= base && ack.sequence < next)
-                slots[ack.sequence % WINDOW_SIZE].acknowledged = 1;
+            int sack = ack.type == PACKET_SACK && ack.length == 8 && option_enabled("RUDP_SACK");
+            if (((ack.type == PACKET_ACK && ack.length == 0) || sack) &&
+                ack.sequence < next) {
+                uint32_t receiver_base = sack ? get_u32(ack.payload) : 0;
+                uint32_t bitmap = sack ? get_u32(ack.payload + 4) : 0;
+                int invalid_sack = receiver_base > next || (bitmap & 1u);
+                for (unsigned int bit = 0; bit < WINDOW_SIZE; ++bit)
+                    if ((bitmap & (UINT32_C(1) << bit)) && (uint64_t)receiver_base + bit >= next)
+                        invalid_sack = 1;
+                /* Echo must agree with cumulative/bitmap coverage. Reject the whole
+                 * report before changing slots, RTT, cwnd, or gap evidence. */
+                if (sack && ack.sequence >= receiver_base &&
+                    (ack.sequence - receiver_base >= WINDOW_SIZE ||
+                     !(bitmap & (UINT32_C(1) << (ack.sequence - receiver_base)))))
+                    invalid_sack = 1;
+                if (invalid_sack) {
+                    progress_event(progress, "ack_rejected", id, ack.sequence, base, bitmap, "invalid_sack");
+                    continue;
+                }
+                progress_event(progress, "ack_received", id, ack.sequence, base, bitmap, sack ? "sack" : "individual");
+                for (uint32_t seq = base; seq < next; ++seq) {
+                    struct send_slot *slot = &slots[seq % WINDOW_SIZE];
+                    int covered = seq == ack.sequence || (sack && (seq < receiver_base ||
+                        (seq >= receiver_base && seq - receiver_base < 32 &&
+                         (bitmap & (UINT32_C(1) << (seq - receiver_base))))));
+                    if (!covered || slot->acknowledged) continue;
+                    slot->acknowledged = 1;
+                    /* Karn: ambiguous retransmitted samples never train the estimator.
+                     * Only the explicitly echoed sequence supplies an RTT sample. */
+                    if (adaptive && !slot->retries && seq == ack.sequence) {
+                        double sample = (double)(monotonic_ms() - slot->sent_at);
+                        if (sample < 1) sample = 1;
+                        if (!srtt) { srtt = sample; variance = sample / 2; }
+                        else {
+                            double error = srtt > sample ? srtt - sample : sample - srtt;
+                            variance = .75 * variance + .25 * error;
+                            srtt = .875 * srtt + .125 * sample;
+                        }
+                        rto = srtt + 4 * variance;
+                        if (rto < 50) rto = 50;
+                        if (rto > 2000) rto = 2000;
+                        progress_event(progress, "rto_update", id, seq, base, rto, "rtt_sample");
+                        progress_event(progress, "srtt_update", id, seq, base, srtt, "rtt_sample");
+                    }
+                    if (congestion) {
+                        cwnd += cwnd < threshold ? 1 : 1 / cwnd;
+                        if (cwnd > WINDOW_SIZE) cwnd = WINDOW_SIZE;
+                        progress_event(progress, "cwnd_change", id, seq, base, cwnd, "new_ack");
+                    }
+                    /* Count distinct newly acknowledged later packets, not duplicate ACKs. */
+                    for (uint32_t hole = base; hole < seq; ++hole)
+                        if (!slots[hole % WINDOW_SIZE].acknowledged)
+                            ++slots[hole % WINDOW_SIZE].gap_reports;
+                }
+                for (uint32_t seq = base; seq < next; ++seq) {
+                    struct send_slot *slot = &slots[seq % WINDOW_SIZE];
+                    if (slot->acknowledged || slot->fast_sent || slot->gap_reports < 3) continue;
+                    if (slot->retries >= MAX_RETRIES) return -1;
+                    if (send_packet(fd, &slot->packet, server) != 0) return -1;
+                    slot->fast_sent = 1;
+                    slot->sent_at = monotonic_ms();
+                    ++slot->retries; ++stats->data_sends; ++stats->data_retries;
+                    progress_event(progress, "loss_detected", id, seq, base, slot->gap_reports, "distinct_gap_acks");
+                    progress_event(progress, "retransmit", id, seq, base, slot->timeout_ms, "fast_gap");
+                    if (congestion && (recovery_end == 0 || base >= recovery_end)) {
+                        threshold = cwnd / 2 < 2 ? 2 : cwnd / 2;
+                        cwnd = threshold; recovery_end = next;
+                        progress_event(progress, "cwnd_change", id, seq, base, cwnd, "fast_gap");
+                    }
+                }
+            }
         }
         uint32_t previous_base = base;
         while (base < next && slots[base % WINDOW_SIZE].acknowledged)
             ++base;
+        if (base != previous_base) progress_event(progress, "window_advance", id, base, base, cwnd, "contiguous_ack");
         if (progress && base != previous_base) {
             uint64_t bytes = (uint64_t)base * PAYLOAD_SIZE;
             if (bytes > file_size)
                 bytes = file_size;
             if (fprintf(progress, "{\"event\":\"ack_progress\",\"monotonic_ns\":%" PRIu64
-                        ",\"base\":%" PRIu32 ",\"bytes\":%" PRIu64 "}\n",
-                        monotonic_ns(), base, bytes) < 0 || fflush(progress) != 0) {
+                        ",\"transfer_id\":\"%016" PRIx64 "\",\"base\":%" PRIu32 ",\"bytes\":%" PRIu64 "}\n",
+                        monotonic_ns(), id, base, bytes) < 0 || fflush(progress) != 0) {
                 perror("write progress log");
                 return -1;
             }
@@ -160,6 +254,11 @@ int main(int argc, char *argv[])
     uint16_t port;
     if (argc != 4) {
         fprintf(stderr, "Usage: %s <server-ip> <port> <file>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+    const char *rto_mode = getenv("RUDP_RTO");
+    if (rto_mode && strcmp(rto_mode, "fixed") && strcmp(rto_mode, "adaptive")) {
+        fprintf(stderr, "RUDP_RTO must be fixed or adaptive.\n");
         return EXIT_FAILURE;
     }
     if (parse_port(argv[2], &port) != 0) {
@@ -212,11 +311,11 @@ int main(int argc, char *argv[])
     }
     struct statistics stats = {0};
     uint64_t start = monotonic_ms();
-    struct packet control = {.type = PACKET_START, .transfer_id = id,
+    struct packet control = {.type = option_enabled("RUDP_SACK") ? PACKET_START_SACK : PACKET_START, .transfer_id = id,
                              .length = START_PAYLOAD_SIZE};
     put_u64(control.payload, size);
     put_u32(control.payload + 8, checksum);
-    if (exchange(fd, &server, &control, PACKET_START_ACK, &stats) != 0 ||
+    if (exchange(fd, &server, &control, option_enabled("RUDP_SACK") ? PACKET_START_SACK_ACK : PACKET_START_ACK, &stats) != 0 ||
         send_file(fd, file, &server, id, (uint32_t)count, size, &stats, progress) != 0)
         goto cleanup;
     control.type = PACKET_FIN;

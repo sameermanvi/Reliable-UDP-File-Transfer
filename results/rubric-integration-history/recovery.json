@@ -1,0 +1,13 @@
+{
+  "route_install_seconds": 0.005357542,
+  "progress_recovery_seconds": 0.199519542,
+  "ack_gap_seconds": 0.199692959,
+  "link_detection_seconds": 0.003304875,
+  "link_down_to_progress_seconds": 0.196214667,
+  "route_to_progress_seconds": 0.194162,
+  "failure_monotonic_ns": 596650165688,
+  "link_down_monotonic_ns": 596653470563,
+  "route_ready_monotonic_ns": 596655523230,
+  "useful_ack_monotonic_ns": 596849685230,
+  "recovery_status": "recovered"
+}

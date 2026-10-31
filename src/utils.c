@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <poll.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
@@ -70,7 +71,7 @@ int packet_decode(struct packet *packet, const unsigned char *wire, size_t size)
 {
     if (size < HEADER_SIZE || size > MAX_PACKET_SIZE ||
         get_u32(wire) != PROTOCOL_MAGIC || wire[4] != PROTOCOL_VERSION ||
-        wire[5] < PACKET_START || wire[5] > PACKET_ERROR)
+        wire[5] < PACKET_START || wire[5] > PACKET_SACK)
         return -1;
     uint16_t length = (uint16_t)((uint16_t)wire[6] << 8 | wire[7]);
     if (length > PAYLOAD_SIZE || size != HEADER_SIZE + length)
@@ -194,4 +195,22 @@ int send_packet(int fd, const struct packet *packet, const struct sockaddr_in *p
         sent = sendto(fd, wire, size, 0, (const struct sockaddr *)peer, sizeof(*peer));
     } while (sent < 0 && errno == EINTR);
     return sent == (ssize_t)size ? 0 : -1;
+}
+
+/* Stable numeric event schema, shared by both endpoints. */
+void progress_event(FILE *log, const char *event, uint64_t id, uint32_t sequence,
+                    uint32_t base, double value, const char *reason)
+{
+    if (!log) return;
+    if (fprintf(log, "{\"event\":\"%s\",\"monotonic_ns\":%llu,\"transfer_id\":\"%016llx\",\"sequence\":%u,\"base\":%u,\"value\":%.3f,\"reason\":\"%s\"}\n",
+                event, (unsigned long long)monotonic_ns(), (unsigned long long)id,
+                sequence, base, value, reason) < 0 || fflush(log) != 0) {
+        perror("write progress log");
+        _exit(1);
+    }
+}
+int option_enabled(const char *name)
+{
+    const char *value = getenv(name);
+    return !value || strcmp(value, "0") != 0;
 }

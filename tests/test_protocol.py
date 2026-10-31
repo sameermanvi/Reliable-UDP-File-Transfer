@@ -22,8 +22,8 @@ HEADER = struct.Struct('!IBBHQII')
 START, START_ACK, DATA, ACK, FIN, FIN_ACK, ERROR = range(1, 8)
 
 
-def frame(kind, transfer=42, sequence=0, payload=b''):
-    wire = HEADER.pack(0x52554450, 1, kind, len(payload), transfer, sequence, 0) + payload
+def frame(kind, transfer=42, sequence=0, payload=b'', version=1):
+    wire = HEADER.pack(0x52554450, version, kind, len(payload), transfer, sequence, 0) + payload
     return wire[:20] + struct.pack('!I', zlib.crc32(wire)) + wire[24:]
 
 
@@ -135,6 +135,7 @@ class ProtocolTests(unittest.TestCase):
                 after = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
                 self.assertEqual(client.returncode, 0, client.stdout + client.stderr)
                 events = [json.loads(line) for line in progress.read_text().splitlines()]
+                events = [e for e in events if e['event'] == 'ack_progress']
                 self.assertEqual(bool(events), bool(size))
                 last_base, last_stamp = 0, before
                 for event in events:
@@ -170,6 +171,30 @@ class ProtocolTests(unittest.TestCase):
             for future in futures:
                 size, impaired = future.result()
                 print(f'  verified {size} bytes, faults={impaired}', flush=True)
+
+    def test_sack_window_edges_and_cumulative_prefix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'output'
+            number = port()
+            server = start_server(number, target)
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                    sock.settimeout(2)
+                    address = ('127.0.0.1', number)
+                    sock.sendto(frame(8, payload=struct.pack('!QI', 32768, 0)), address)
+                    self.assertEqual(HEADER.unpack(sock.recv(4096)[:24])[2], 9)
+                    for seq, expected_base, expected_bitmap in [(31, 0, 1 << 31),
+                                                               (1, 0, (1 << 31) | 2),
+                                                               (0, 2, 1 << 29),
+                                                               (0, 2, 1 << 29)]:
+                        sock.sendto(frame(DATA, sequence=seq, payload=b'x' * 1024), address)
+                        wire = sock.recv(4096)
+                        self.assertEqual(HEADER.unpack(wire[:24])[2], 10)
+                        self.assertEqual(HEADER.unpack(wire[:24])[5], seq)
+                        self.assertEqual(struct.unpack('!II', wire[24:]), (expected_base, expected_bitmap))
+                    self.assertFalse(target.exists())
+            finally:
+                stop(server)
 
     def test_argument_validation(self):
         for value in ('0', '-1', '65536', '99999999999999999999', 'abc', '12x', '+80'):
@@ -207,7 +232,7 @@ class ProtocolTests(unittest.TestCase):
                         sock.recv(4096)
 
                 # Garbage, truncated, oversized and corrupted datagrams must not start a session.
-                for wire in (b'garbage', frame(START)[:20], frame(START, payload=b'x' * 1025),
+                for wire in (b'garbage', frame(START, payload=struct.pack('!QI', 0, 0), version=2), frame(START)[:20], frame(START, payload=b'x' * 1025),
                              frame(START, payload=struct.pack('!QI', 0, 0))[:-1] + b'\x01'):
                     expect_silence(wire)
                 self.assertEqual(target.read_bytes(), b'previous contents')

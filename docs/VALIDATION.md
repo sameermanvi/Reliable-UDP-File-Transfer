@@ -1,3 +1,77 @@
+# Final rubric validation — 31 October 2026
+
+## Executed final-source local checks
+
+The one-command evaluation completed with status `passed`:
+
+```sh
+python3 scripts/evaluate.py --output results/rubric-final-native --local-only
+```
+
+- **48 tests passed**: 8 protocol, 5 adversarial transport, 4 probe tracking,
+  3 recording-adapter OpenFlow, 12 routing, 11 metrics, 5 local integration tests.
+- Coverage includes legacy/bitmap negotiation, unknown header versions, malformed
+  and impossible SACKs, duplicate-ACK evidence, fixed/adaptive mode, Karn exclusion,
+  50–2000 ms timer bounds, CWND cap, corruption, loss, reordering, atomic replacement,
+  bounded failure, recovery on either branch, repeated failures and censored recovery.
+- **60/60 three-repeat localhost benchmark transfers** succeeded with recorded
+  matching input/output SHA-256. Raw traces and all configuration fields are saved.
+- Warning-enabled C11 build, Python syntax checks and diff whitespace checks pass.
+
+Artifacts: [manifest](../results/rubric-final-native/evaluation.json),
+[complete test log](../results/rubric-final-native/tests.log),
+[benchmark log](../results/rubric-final-native/benchmark.log),
+[metrics/hashes](../results/rubric-final-native/transport/metrics.csv),
+[environment/source fingerprint](../results/rubric-final-native/transport/environment.json),
+[summary](../results/rubric-final-native/transport/plots/summary.md).
+The native host is macOS. The OpenFlow adapter tests exercise the real controller
+handlers against recorded messages; they are not a running OS-Ken switch test.
+
+## Real integration evidence retained, not relabeled
+
+The 29 October Mininet archive contains real controller and application logs.
+A selected trial was extracted without alteration and analyzed with current
+path-independent recovery logic. It yields 0.196215 s from controller link_down
+to useful ACK (0.199520 s from injection). See
+[provenance](../results/rubric-integration-history/provenance.json),
+[exact timestamps](../results/rubric-integration-history/recovery.json), and
+[joined plot](../results/rubric-integration-history/timeline.svg).
+This validates the historical integration only; its source fingerprint differs
+from the new transport/probe implementation.
+
+## Pending final Linux checks — must execute before claiming full completion
+
+The Docker daemon is absent at /var/run/docker.sock; see
+[environment check](../results/rubric-linux-plan/environment-check.txt).
+Starting Docker was previously declined, so no attempt was made to bypass that.
+
+On Ubuntu 22.04 with root access:
+
+```sh
+sudo sh scripts/setup_env.sh
+sudo .venv/bin/python scripts/demo.py --mode failover --output results/preflight-failover
+sudo .venv/bin/python scripts/evaluate.py --output results/rubric-final
+```
+
+Expected: tests.log and evaluation.json with status passed; comparison matrix,
+reverse-branch recovery and robustness subdirectories; per-trial endpoint and
+controller JSONL, probe scores/decisions, network dumps, intervention/outage records,
+SHA-256 fields; goodput/retry/recovery/completion plots and joined timelines.
+Hard failover must finish with a matching hash. Permanent static failure must be
+recorded as expected failure with no output. Soft degradation must produce a
+health_update route change without a port-down event. Robustness must actually
+inject loss/reordering and at least three flap transitions. Censored recovery is
+N/A, and an uninjected trial is rejected. See [pending plan](../results/rubric-linux-plan/README.md).
+
+An earlier local test attempt used the wrong assertion that the global RTO must
+reach 2 s while the base remained fixed. The corrected adversarial test checks
+the per-slot backoff cap; global backoff is once per outstanding-window epoch.
+Only rubric-final-native is the final passing local bundle.
+
+The following records are historical and do not validate the new probe controller.
+
+---
+
 # Restoration validation — 30 October 2026
 
 Restored the advanced implementation from `49f9ae6`, immediately before

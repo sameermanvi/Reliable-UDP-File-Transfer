@@ -21,3 +21,14 @@ def set_link_loss(network, first, second, loss):
         result = interface.config(**options)
         if result and any(result.get("tcoutputs", [])):
             raise RuntimeError("Traffic-control configuration failed on " + interface.name)
+
+
+def set_host_reordering(network, percent=20):
+    """Host links have no bandwidth qdisc; branch HTB/netem stays intact."""
+    if not 0 <= percent <= 100:
+        raise ValueError("reorder percentage must be in 0..100")
+    for host in network.hosts:
+        result = host.cmd("tc qdisc replace dev %s root netem delay 8ms 2ms reorder %s%% 50%%" %
+                          (host.defaultIntf(), percent))
+        if result.strip():
+            raise RuntimeError("Host reordering setup failed: " + result)

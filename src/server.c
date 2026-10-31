@@ -28,6 +28,20 @@ static void report_error(int fd, const struct sockaddr_in *peer, uint64_t id,
     fprintf(stderr, "%s\n", message);
 }
 
+static int data_ack(int fd, const struct sockaddr_in *peer, uint64_t id,
+                    uint32_t sequence, uint32_t base, struct receive_slot *slots, int sack)
+{
+    if (!sack) return reply(fd, peer, id, PACKET_ACK, sequence);
+    struct packet ack = {.type = PACKET_SACK, .transfer_id = id,
+                         .sequence = sequence, .length = 8};
+    uint32_t bitmap = 0;
+    for (unsigned int bit = 0; bit < WINDOW_SIZE; ++bit)
+        if ((uint64_t)base + bit <= UINT32_MAX && slots[(base + bit) % WINDOW_SIZE].occupied)
+            bitmap |= UINT32_C(1) << bit;
+    put_u32(ack.payload, base); put_u32(ack.payload + 4, bitmap);
+    return send_packet(fd, &ack, peer);
+}
+
 int main(int argc, char *argv[])
 {
     uint16_t port;
@@ -56,6 +70,12 @@ int main(int argc, char *argv[])
     printf("Listening on UDP port %u...\n", port);
     fflush(stdout);
 
+    FILE *progress = NULL;
+    const char *log_path = getenv("RUDP_PROGRESS_LOG");
+    if (log_path && *log_path && !(progress = fopen(log_path, "wx"))) {
+        perror("create progress log"); close(fd); return EXIT_FAILURE;
+    }
+    int sack = 0;
     FILE *output = NULL;
     char *temporary_path = NULL;
     int active = 0, complete = 0, temporary_created = 0, status = EXIT_FAILURE;
@@ -85,9 +105,10 @@ int main(int argc, char *argv[])
         if (!result)
             continue;
         if (!active) {
-            if (packet.type != PACKET_START || packet.sequence != 0 ||
+            if ((packet.type != PACKET_START && packet.type != PACKET_START_SACK) || packet.sequence != 0 ||
                 packet.length != START_PAYLOAD_SIZE)
                 continue;
+            sack = packet.type == PACKET_START_SACK;
             expected_size = get_u64(packet.payload);
             packet_count = expected_size / PAYLOAD_SIZE + (expected_size % PAYLOAD_SIZE != 0);
             if (packet_count > UINT32_MAX) {
@@ -118,7 +139,7 @@ int main(int argc, char *argv[])
             }
             active = 1;
             started = last_activity = monotonic_ms();
-            if (reply(fd, &client, id, PACKET_START_ACK, 0) != 0) {
+            if (reply(fd, &client, id, sack ? PACKET_START_SACK_ACK : PACKET_START_ACK, 0) != 0) {
                 perror("send START_ACK");
                 break;
             }
@@ -126,11 +147,11 @@ int main(int argc, char *argv[])
         }
         if (!same_peer(&peer, &client) || packet.transfer_id != id)
             continue;
-        if (packet.type == PACKET_START && packet.sequence == 0 &&
+        if (packet.type == (sack ? PACKET_START_SACK : PACKET_START) && packet.sequence == 0 &&
             packet.length == START_PAYLOAD_SIZE &&
             get_u64(packet.payload) == expected_size &&
             get_u32(packet.payload + 8) == expected_crc) {
-            if (reply(fd, &client, id, PACKET_START_ACK, 0) != 0)
+            if (reply(fd, &client, id, sack ? PACKET_START_SACK_ACK : PACKET_START_ACK, 0) != 0)
                 break;
             continue;
         }
@@ -141,7 +162,7 @@ int main(int argc, char *argv[])
                 continue;
             if (packet.sequence < base) {
                 ++duplicates;
-                if (reply(fd, &client, id, PACKET_ACK, packet.sequence) != 0)
+                if (data_ack(fd, &client, id, packet.sequence, base, slots, sack) != 0)
                     break;
                 continue;
             }
@@ -151,8 +172,16 @@ int main(int argc, char *argv[])
             if (!slot->occupied) {
                 slot->packet = packet;
                 slot->occupied = 1;
-                if (packet.sequence != base)
+                if (packet.sequence != base) {
                     ++reordered;
+                    progress_event(progress, "out_of_order", id, packet.sequence, base, 0, "buffered");
+                    progress_event(progress, "gap_detected", id, packet.sequence, base, 0, "missing_base");
+                } else {
+                    int buffered = 0;
+                    for (unsigned int i = 0; i < WINDOW_SIZE; ++i)
+                        if (i != base % WINDOW_SIZE && slots[i].occupied) buffered = 1;
+                    if (buffered) progress_event(progress, "hole_filled", id, packet.sequence, base, 0, "ordered_drain");
+                }
             } else {
                 ++duplicates;
             }
@@ -169,7 +198,7 @@ int main(int argc, char *argv[])
                 ++base;
             }
             last_activity = monotonic_ms();
-            if (reply(fd, &client, id, PACKET_ACK, packet.sequence) != 0)
+            if (data_ack(fd, &client, id, packet.sequence, base, slots, sack) != 0)
                 break;
             continue;
         }
@@ -208,6 +237,7 @@ cleanup:
             unlink(temporary_path);
         free(temporary_path);
     }
+    if (progress) fclose(progress);
     close(fd);
     return status;
 }

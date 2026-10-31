@@ -45,12 +45,16 @@ def forwarding_rules(path):
 
 
 class PathPolicy:
-    def __init__(self, mode="failover"):
+    def __init__(self, mode="failover", initial="upper"):
         if mode not in ("static", "failover"):
             raise ValueError("mode must be static or failover")
+        if initial not in PATH_PORTS:
+            raise ValueError("initial path must be upper or lower")
+        self.initial = initial
         self.mode = mode
         self.connected = set()
         self.ports = {}
+        self.health = {}
 
     def available(self, path):
         return (all(dpid in self.connected for dpid in PATH_SWITCHES[path])
@@ -65,10 +69,14 @@ class PathPolicy:
         if not all(self.ports.get(port, False) for port in HOST_PORTS):
             return None
         if self.mode == "static":
-            return "upper"
-        if current is not None and self.available(current):
+            return self.initial
+        candidates = [path for path in (self.initial, "lower" if self.initial == "upper" else "upper") if self.available(path)]
+        if not candidates:
+            return None
+        if current in candidates and not all(path in self.health for path in candidates):
             return current
-        for path in ("upper", "lower"):
-            if self.available(path):
-                return path
-        return None
+        best = min(candidates, key=lambda path: self.health.get(path, 0))
+        # Retain the current route unless measured degradation exceeds 2%.
+        if current in candidates and self.health.get(current, 0) <= self.health.get(best, 0) + .02:
+            return current
+        return best
