@@ -76,7 +76,7 @@ class LocalTests(unittest.TestCase):
                     self.assertEqual(receiver.returncode, 0, stderr)
                     self.assertEqual(output.read_bytes(), data)
                     self.assertIn('bytes=%d ' % size, result.stdout)
-                    rows = [(e['monotonic_ns'], e['bytes']) for e in map(json.loads, trace.read_text().splitlines())]
+                    rows = [(e['monotonic_ns'], e['bytes']) for e in map(json.loads, trace.read_text().splitlines()) if e['event'] == 'ack_progress']
                     self.assertEqual(rows[-1][1] if rows else 0, size)
                     self.assertTrue(all(a[0] <= b[0] and a[1] < b[1] for a, b in zip(rows, rows[1:])))
                 finally:
@@ -115,7 +115,8 @@ class LocalTests(unittest.TestCase):
             source = Path(folder)/'input'
             source.write_bytes(os.urandom(4096))
             client = subprocess.Popen([str(CLIENT), '127.0.0.1', str(sock.getsockname()[1]), str(source)],
-                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                      env={**os.environ, "RUDP_SACK": "0"})
             try:
                 kind, seq, metadata, peer = receive(sock)
                 self.assertEqual(kind, START)

@@ -1,24 +1,34 @@
-# UE25CS243A Reliable UDP File Transfer
+# Reliable UDP transfer with dynamic SDN recovery
 
-A C / POSIX sockets file uploader with application-level reliability and an SDN
-failure-recovery lab. Selective Repeat keeps up to 32 DATA packets in flight;
-individual ACKs, CRC-32, timeouts and bounded retransmissions recover loss and
-reordering. An OS-Ken controller routes the same transfer through alternate
-paths in a Mininet diamond when a link fails.
+A C/POSIX Selective Repeat uploader and OS-Ken controller on a Mininet diamond.
+The application recovers missing datagrams while the controller restores network
+reachability. The live demo keeps one upload running across a path failure and
+verifies the completed file with SHA-256.
 
-This is a custom reliable UDP protocol. It does not interoperate with FTP, FTPS,
-SFTP or TFTP.
+## Features and validation
 
-## Build and transfer a file
+- Selective Repeat with a 32-packet receive window, negotiated SACK bitmap,
+  adaptive RTO with Karn sampling, and fast gap retransmission.
+- Capped congestion control, with independent switches for controlled comparisons.
+- Static/failover routing and bidirectional health probes with hysteresis.
+- Monotonic JSONL events, joined recovery timelines, and repeatable experiments.
 
-The C application runs on Linux or macOS with a C11 compiler and Make. Python 3
-is required for the test harness.
+**Verified locally:** 48 automated tests and 60/60 hash-verified transfers.
+**Pending:** final Mininet/OVS validation of the new probe controller on Linux.
+See [Key Results](docs/KEY_RESULTS.md) for measurements and their limits.
+
+## Build and test
+
+Linux or macOS: C11 compiler, Make, Python 3 (no Python packages for local tests).
 
 ```sh
+git clone https://github.com/sameermanvi/Reliable-UDP-File-Transfer.git
+cd Reliable-UDP-File-Transfer
 make
+make test
 ```
 
-Start the receiver, then start the sender in a second terminal within 10 seconds:
+In separate terminals, start the client within 10 seconds of the receiver:
 
 ```sh
 ./src/server 9000 /tmp/received.bin
@@ -26,126 +36,94 @@ Start the receiver, then start the sender in a second terminal within 10 seconds
 cmp /path/to/input.bin /tmp/received.bin
 ```
 
-The receiver handles one upload and exits after a 6.4-second final-ACK linger.
-Start a fresh receiver for each transfer. Independent receiver processes on
-different ports can run concurrent transfers; there is no shared multi-client
-service. Both programs return zero on success and nonzero on failure.
+Each receiver accepts one upload and exits after a 6.4 s FIN linger. Successful
+verification atomically replaces its destination; ordinary failed transfers
+preserve it. Keep the input unchanged. The protocol has packet CRC, transfer ID,
+size and whole-file CRC, bounded retries and explicit FIN. It is not FTP or TCP.
 
-The receiver writes a temporary file beside the output. It replaces the output
-only after validating the declared size and whole-file CRC. **A successful
-transfer replaces an existing output file.** Ordinary failures preserve it and
-remove the temporary file; forced termination may leave a `.part.*` file. Keep
-the input file unchanged during upload.
-
-## Check the protocol
+## Reproducible transport switches
 
 ```sh
-make test
+RUDP_RTO=fixed RUDP_SACK=0 RUDP_CC=0 ./src/client 127.0.0.1 9000 input.bin
+RUDP_RTO=adaptive RUDP_SACK=1 RUDP_CC=0 ./src/client 127.0.0.1 9000 input.bin
 ```
 
-The tests generate real binary data and cover empty files, chunk/window
-boundaries, loss in both directions, corruption, duplication, reordering,
-malformed messages, session isolation, missing FIN and retry exhaustion.
-Independent SHA-256 comparisons verify successful outputs. These tests do not
-need Mininet or privileged network configuration.
+Defaults: adaptive RTO, negotiated bitmap ACKs, capped congestion control on.
+Start a new receiver for each command. `RUDP_RTO` accepts exactly fixed/adaptive;
+`RUDP_SACK=0` selects the original wire exchange for old endpoints. An old server
+cannot negotiate the default bitmap extension. The fixed 24-byte v1 header and
+all packet types are documented in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-Client summaries include transfer time, payload goodput, original DATA packets,
-total DATA sends and retransmissions. Receiver summaries include duplicates and
-out-of-order arrivals. See [metric definitions](docs/ARCHITECTURE.md#measurements).
+Set `RUDP_PROGRESS_LOG` to a fresh path on each endpoint for flushed JSONL events.
+Use different sender/receiver paths. Both files and controller logs use monotonic
+nanoseconds; never compare clocks from different physical machines.
 
-## Run the SDN lab
+## Live failover demo on Linux
 
-Mininet requires Linux network namespaces and Open vSwitch. Use a dedicated
-Ubuntu Linux lab machine or VM with root access. macOS can run the C application
-and unit tests, but cannot run Mininet directly.
-
-From the repository root, install the lab dependencies and build the binaries:
+Ubuntu 22.04 is the supplied setup target. Setup needs network package access:
 
 ```sh
-sudo bash scripts/setup_env.sh
+sudo sh scripts/setup_env.sh
+sudo .venv/bin/python scripts/demo.py --mode failover --output results/live-failover
+sudo .venv/bin/python scripts/demo.py --mode static --output results/live-static
 ```
 
-Run repeated normal, packet-loss and link-failure cases with static routing and
-automatic failover:
+The failover run starts controller/topology, starts an 8 MiB transfer, kills the
+active branch after 0.5 s of real ACK progress, shows alternate route readiness,
+and checks endpoint exits, output size and SHA-256. The static run must fail
+without installing a finalized output. Each saves a joined timeline and logs.
+See the one-page [live demo](docs/DEMO.md) for lower→upper recovery, soft degradation,
+loss/reordering/flaps, expected console output and Docker commands.
+
+## One command for the final evaluation
 
 ```sh
-sudo .venv/bin/python scripts/run_experiments.py \
-  --scenarios normal loss link-failure \
-  --modes static failover --repeats 3 --output results/latest
-.venv/bin/python scripts/plot_metrics.py results/latest/metrics.csv \
-  --output results/latest/plots
+sudo .venv/bin/python scripts/evaluate.py --output results/rubric-final
 ```
 
-Each trial uses the C endpoints inside Mininet, checks file integrity and saves
-the endpoint and controller logs. The static link-failure case is expected to
-exhaust its retry budget; the failover case is expected to finish through the
-alternate path. Expected behavior is not a substitute for the generated run
-record. See the [validation record](docs/VALIDATION.md) for what has actually run.
+This runs the full suite, then a three-repeat static/failover × fixed/adaptive ×
+plain/bitmap comparison with loss rates 0/2% and fault times 0.5/1.5 s. It also runs
+lower→upper recovery, loss/reordering/short flaps and probe-driven soft degradation.
+CC stays off in the main matrix to isolate those effects; local evaluation tests
+and separately ablates CC. Permanent static failures take up to about a minute;
+the full factorial evaluation can take well over an hour. Use `demo.py` first to
+verify infrastructure. Use `--repeats 5` for five repeats; fresh output is required.
 
-The [demo guide](docs/DEMO.md) covers manual topology inspection, failure
-injection, concurrent transfers, troubleshooting and the evidence to present.
+Expected output:
 
-Docker is optional; native execution above is the primary workflow.
-For the SDN lab on macOS, a Linux VM or Docker Desktop supplies Linux. Build the image, then
-run it with network namespace privileges and a results-only bind mount:
+```text
+results/rubric-final/
+  evaluation.json, tests.log, runner-*.log, README.md
+  matrix/                 # comparison matrix
+  lower-recovery/         # reverse branch recovery
+  robustness/             # probes, loss, reordering and flaps
+    environment.json, metrics.csv, metrics.json, plots/
+    TRIAL/controller.jsonl, progress-0.jsonl, receiver-0.jsonl
+    TRIAL/client-0.log, server-0.log, interventions.jsonl, outages-0.json
+    TRIAL/network-initial.txt, network-final.txt, plots/timeline.svg
+```
+
+Every successful row requires independent hash equality. All failed rows remain.
+Plots cover goodput, retries, retry fraction, completion and recovery. Recovery
+without a qualifying observation is N/A/censored, never zero.
+
+Without Linux, produce a plan or run the transport evidence only:
 
 ```sh
-docker build -t rudp-sdn .
-mkdir -p results/docker
-docker run --rm --privileged \
-  -v "$PWD/results/docker:/project/results/docker" rudp-sdn \
-  python scripts/run_experiments.py --datapath user --repeats 3 \
-  --output results/docker/evaluation
-docker run --rm --entrypoint python \
-  -v "$PWD/results/docker:/project/results/docker" rudp-sdn \
-  scripts/plot_metrics.py results/docker/evaluation/metrics.csv \
-  --output results/docker/evaluation/plots
+python3 scripts/evaluate.py --output results/linux-plan --plan-only
+python3 scripts/evaluate.py --output results/local-check --local-only
 ```
 
-The newer Compose shortcut is also retained:
+## Evidence and documentation
 
-```sh
-docker compose run --build --rm demo
-```
+The final local bundle has **48 passing tests and 60/60 hash-verified transfers**:
+[validation](docs/VALIDATION.md), [Key Results](docs/KEY_RESULTS.md),
+[raw local metrics](results/rubric-final-native/transport/metrics.csv).
+Final probe-controller/Mininet measurements are **pending Linux execution**.
+The retained [historical joined timeline](results/rubric-integration-history/timeline.svg)
+demonstrates the earlier controller's real socket–SDN integration; it does not
+validate the new probe controller. Do not mix historical and current source runs.
 
-It uses `scripts/demo.py`, adapted for restored JSONL progress and statistics.
-That runner and Docker/Mininet execution have not been revalidated in this
-restoration session; the comprehensive runner above is the primary SDN workflow.
-
-The image builds its own Linux binaries. The userspace switch datapath avoids
-requiring the Docker VM to provide an Open vSwitch kernel module. Use a fresh
-output directory for each run.
-
-## Project documentation
-
-- [Architecture, topology and packet layout](docs/ARCHITECTURE.md)
-- [Demo and experiment guide](docs/DEMO.md)
-- [Viva questions](docs/VIVA.md)
-- [Report structure and interpretation](docs/REPORT.md)
-- [Assignment checklist and rubric mapping](docs/RUBRIC_MAPPING.md)
-- [Validation record](docs/VALIDATION.md)
-- [Design decisions and references](docs/DESIGN_DECISIONS.md)
-
-The earlier [stop-and-wait implementation](examples/stop_and_wait/README.md)
-is preserved with its matching receiver. Its wire format is incompatible with
-the current `src/client` and `src/server`; use each pair together. The SDN
-comparison holds the current transfer protocol constant and changes only the
-routing policy.
-
-## Scope and limits
-
-The protocol uses a fixed window and 200 ms retry interval, with at most 30
-retries per packet. It does not implement adaptive congestion control, RTT
-estimation, encryption, authentication or restart/resume. An outage longer than
-the retry or receiver inactivity budget can fail the transfer. CRC-32 detects
-accidental corruption; the independent SHA-256 check belongs to the test and
-experiment harness, not the wire protocol.
-
-The SDN controller is designed for the supplied diamond and detects link state
-changes through OpenFlow port status events. It does not claim general topology
-discovery or congestion-aware routing. Use controlled lab networks for these
-experiments.
-
-## License
-
-[MIT](LICENSE).
+Assessment checklist: [rubric mapping](docs/RUBRIC_MAPPING.md).
+Prioritized file changes: [completion plan](docs/RUBRIC_FINISH.md).
+Technical defense: [viva](docs/VIVA.md). Findings and limits: [report](docs/REPORT.md).

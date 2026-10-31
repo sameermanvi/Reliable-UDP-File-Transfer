@@ -16,4 +16,7 @@ int receive_packet(int fd, struct packet *packet, struct sockaddr_in *peer,
 int send_packet(int fd, const struct packet *packet, const struct sockaddr_in *peer);
 int same_peer(const struct sockaddr_in *a, const struct sockaddr_in *b);
 
+void progress_event(FILE *, const char *, uint64_t, uint32_t, uint32_t, double, const char *);
+int option_enabled(const char *);
+
 #endif

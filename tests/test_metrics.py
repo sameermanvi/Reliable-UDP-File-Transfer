@@ -43,6 +43,58 @@ class MetricsTests(unittest.TestCase):
             result = experiments.recovery_metrics(progress, routes, 100)
             self.assertIsNone(result["progress_recovery_seconds"])
 
+    def test_outages_are_bounded_and_inactive_flaps_are_labeled(self):
+        routes = [dict(event="route_ready", path="upper", monotonic_ns=50),
+                  dict(event="link_down", monotonic_ns=110),
+                  dict(event="route_ready", path="lower", monotonic_ns=150)]
+        progress = [dict(event="ack_progress", base=1, monotonic_ns=160)]
+        interventions = [dict(event="failure_injected", monotonic_ns=100),
+                         dict(event="link_restored", monotonic_ns=140),
+                         dict(event="failure_injected", monotonic_ns=200)]
+        records = experiments.outage_metrics(progress, routes, interventions)
+        self.assertIsNone(records[0]["progress_recovery_seconds"])
+        self.assertEqual(records[1]["classification"], "inactive_primary_flap")
+        self.assertIsNone(records[1]["progress_recovery_seconds"])
+
+    def test_matrix_groups_do_not_mix_ablation_modes(self):
+        rows = [dict(scenario="loss", mode="failover", rto=rto, sack="bitmap", cc="off",
+                     loss_percent=2, fail_after=1, flap_period=1, run_id=rto,
+                     success=True, expectation_met=True, goodput_mbps=1)
+                for rto in ("fixed", "adaptive")]
+        self.assertEqual(len(plots.summarize(rows)), 2)
+
+    def test_recovery_on_either_path_and_observed_down_clock(self):
+        for failed, alternate in (("upper", "lower"), ("lower", "upper")):
+            events = [dict(event="link_down", monotonic_ns=110),
+                      dict(event="route_ready", path=alternate, monotonic_ns=130)]
+            progress = [dict(event="ack_progress", base=2, monotonic_ns=140)]
+            result = experiments.recovery_metrics(progress, events, 100, failed)
+            self.assertEqual(result["recovery_status"], "recovered")
+            self.assertAlmostEqual(result["link_down_to_progress_seconds"], 30e-9)
+            self.assertEqual(result["useful_ack_monotonic_ns"], 140)
+
+    def test_censored_transfer_ends_before_post_route_progress(self):
+        progress = [dict(event="ack_progress", base=10, monotonic_ns=120)]
+        routes = [dict(event="route_ready", path="lower", monotonic_ns=130)]
+        result = experiments.recovery_metrics(progress, routes, 100)
+        self.assertEqual(result["recovery_status"], "censored_no_progress")
+        self.assertIsNone(result["progress_recovery_seconds"])
+        # ACK exactly at the barrier timestamp is not proven to follow it.
+        progress.append(dict(event="ack_progress", base=11, monotonic_ns=130))
+        self.assertIsNone(experiments.recovery_metrics(progress, routes, 100)["progress_recovery_seconds"])
+
+    def test_repeated_failures_switch_in_both_directions(self):
+        events = [dict(event="route_ready", path="upper", monotonic_ns=10),
+                  dict(event="route_ready", path="lower", monotonic_ns=120),
+                  dict(event="route_ready", path="upper", monotonic_ns=220)]
+        progress = [dict(event="ack_progress", base=2, monotonic_ns=130),
+                    dict(event="ack_progress", base=3, monotonic_ns=230)]
+        interventions = [dict(event="failure_injected", path="upper", monotonic_ns=100),
+                         dict(event="link_restored", path="upper", monotonic_ns=150),
+                         dict(event="failure_injected", path="lower", monotonic_ns=200)]
+        results = experiments.outage_metrics(progress, events, interventions)
+        self.assertEqual([r["recovery_status"] for r in results], ["recovered", "recovered"])
+
     def test_partially_written_log_and_missing_file(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "events.jsonl"

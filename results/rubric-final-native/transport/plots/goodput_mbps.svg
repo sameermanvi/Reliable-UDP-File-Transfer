@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="730" viewBox="0 0 1100 730">
+<rect width="100%" height="100%" fill="white"/>
+<style>text{font:12px sans-serif;fill:#1e293b} .title{font-size:18px;font-weight:bold}</style>
+<text x="20" y="28" class="title">Payload goodput (Mb/s) (mean; range whiskers)</text>
+<text x="15" y="77">5ms one-way | local-delay | fixed / plain / CC off</text>
+<rect x="580" y="65" width="396.21" height="18" fill="#2563eb"/>
+<path d="M965.00,74 H987.63" stroke="#111827" stroke-width="2"/>
+<text x="986.21" y="78">14.988</text>
+<text x="15" y="109">5ms one-way | local-delay | adaptive / plain / CC off</text>
+<rect x="580" y="97" width="399.87" height="18" fill="#2563eb"/>
+<path d="M976.00,106 H987.63" stroke="#111827" stroke-width="2"/>
+<text x="989.87" y="110">15.127</text>
+<text x="15" y="141">5ms one-way | local-delay | fixed / bitmap / CC off</text>
+<rect x="580" y="129" width="396.00" height="18" fill="#2563eb"/>
+<path d="M976.00,138 H976.00" stroke="#111827" stroke-width="2"/>
+<text x="986.00" y="142">14.980</text>
+<text x="15" y="173">5ms one-way | local-delay | adaptive / bitmap / CC off</text>
+<rect x="580" y="161" width="400.33" height="18" fill="#2563eb"/>
+<path d="M965.00,170 H1000.00" stroke="#111827" stroke-width="2"/>
+<text x="990.33" y="174">15.144</text>
+<text x="15" y="205">5ms one-way | local-delay | adaptive / bitmap / CC on</text>
+<rect x="580" y="193" width="178.48" height="18" fill="#2563eb"/>
+<path d="M755.45,202 H760.00" stroke="#111827" stroke-width="2"/>
+<text x="768.48" y="206">6.752</text>
+<text x="15" y="237">5ms one-way | local-faults | fixed / plain / CC off</text>
+<rect x="580" y="225" width="297.02" height="18" fill="#2563eb"/>
+<path d="M874.88,234 H881.31" stroke="#111827" stroke-width="2"/>
+<text x="887.02" y="238">11.236</text>
+<text x="15" y="269">5ms one-way | local-faults | adaptive / plain / CC off</text>
+<rect x="580" y="257" width="305.87" height="18" fill="#2563eb"/>
+<path d="M881.31,266 H895.00" stroke="#111827" stroke-width="2"/>
+<text x="895.87" y="270">11.571</text>
+<text x="15" y="301">5ms one-way | local-faults | fixed / bitmap / CC off</text>
+<rect x="580" y="289" width="299.17" height="18" fill="#2563eb"/>
+<path d="M874.88,298 H881.31" stroke="#111827" stroke-width="2"/>
+<text x="889.17" y="302">11.317</text>
+<text x="15" y="333">5ms one-way | local-faults | adaptive / bitmap / CC off</text>
+<rect x="580" y="321" width="305.96" height="18" fill="#2563eb"/>
+<path d="M874.88,330 H895.00" stroke="#111827" stroke-width="2"/>
+<text x="895.96" y="334">11.574</text>
+<text x="15" y="365">5ms one-way | local-faults | adaptive / bitmap / CC on</text>
+<rect x="580" y="353" width="137.23" height="18" fill="#2563eb"/>
+<path d="M715.88,362 H718.60" stroke="#111827" stroke-width="2"/>
+<text x="727.23" y="366">5.191</text>
+<text x="15" y="397">130ms one-way | local-delay | fixed / plain / CC off</text>
+<rect x="580" y="385" width="25.86" height="18" fill="#2563eb"/>
+<path d="M605.77,394 H605.96" stroke="#111827" stroke-width="2"/>
+<text x="615.86" y="398">0.978</text>
+<text x="15" y="429">130ms one-way | local-delay | adaptive / plain / CC off</text>
+<rect x="580" y="417" width="25.83" height="18" fill="#2563eb"/>
+<path d="M605.72,426 H605.91" stroke="#111827" stroke-width="2"/>
+<text x="615.83" y="430">0.977</text>
+<text x="15" y="461">130ms one-way | local-delay | fixed / bitmap / CC off</text>
+<rect x="580" y="449" width="25.84" height="18" fill="#2563eb"/>
+<path d="M605.72,458 H605.91" stroke="#111827" stroke-width="2"/>
+<text x="615.84" y="462">0.978</text>
+<text x="15" y="493">130ms one-way | local-delay | adaptive / bitmap / CC off</text>
+<rect x="580" y="481" width="25.85" height="18" fill="#2563eb"/>
+<path d="M605.85,490 H605.85" stroke="#111827" stroke-width="2"/>
+<text x="615.85" y="494">0.978</text>
+<text x="15" y="525">130ms one-way | local-delay | adaptive / bitmap / CC on</text>
+<rect x="580" y="513" width="4.54" height="18" fill="#2563eb"/>
+<path d="M584.39,522 H584.81" stroke="#111827" stroke-width="2"/>
+<text x="594.54" y="526">0.172</text>
+<text x="15" y="557">130ms one-way | local-faults | fixed / plain / CC off</text>
+<rect x="580" y="545" width="18.75" height="18" fill="#2563eb"/>
+<path d="M598.74,554 H598.77" stroke="#111827" stroke-width="2"/>
+<text x="608.75" y="558">0.709</text>
+<text x="15" y="589">130ms one-way | local-faults | adaptive / plain / CC off</text>
+<rect x="580" y="577" width="18.78" height="18" fill="#2563eb"/>
+<path d="M598.77,586 H598.80" stroke="#111827" stroke-width="2"/>
+<text x="608.78" y="590">0.710</text>
+<text x="15" y="621">130ms one-way | local-faults | fixed / bitmap / CC off</text>
+<rect x="580" y="609" width="18.78" height="18" fill="#2563eb"/>
+<path d="M598.74,618 H598.82" stroke="#111827" stroke-width="2"/>
+<text x="608.78" y="622">0.710</text>
+<text x="15" y="653">130ms one-way | local-faults | adaptive / bitmap / CC off</text>
+<rect x="580" y="641" width="18.74" height="18" fill="#2563eb"/>
+<path d="M598.72,650 H598.77" stroke="#111827" stroke-width="2"/>
+<text x="608.74" y="654">0.709</text>
+<text x="15" y="685">130ms one-way | local-faults | adaptive / bitmap / CC on</text>
+<rect x="580" y="673" width="3.01" height="18" fill="#2563eb"/>
+<path d="M583.01,682 H583.01" stroke="#111827" stroke-width="2"/>
+<text x="593.01" y="686">0.114</text>
+</svg>

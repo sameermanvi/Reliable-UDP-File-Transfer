@@ -122,6 +122,25 @@ class RoutingTests(unittest.TestCase):
             self.assertIsNone(trace(rules, (1, 1), eth_type)[0])
             self.assertIsNone(trace(rules, (4, 3), eth_type)[0])
 
+    def test_health_hysteresis_and_unknown_backup(self):
+        policy = connected_policy()
+        policy.health = {"upper": .1}
+        self.assertEqual(policy.choose("upper"), "upper")
+        policy.health["lower"] = .09
+        self.assertEqual(policy.choose("upper"), "upper")
+        policy.health["lower"] = .01
+        self.assertEqual(policy.choose("upper"), "lower")
+        policy.ports[(1, 3)] = False
+        self.assertEqual(policy.choose("upper"), "upper")
+
+    def test_lower_initial_route_and_static_contrast(self):
+        policy = connected_policy()
+        policy.initial = "lower"
+        self.assertEqual(policy.choose(None), "lower")
+        policy.mode = "static"
+        policy.ports[(1, 3)] = False
+        self.assertEqual(policy.choose("lower"), "lower")
+
     def test_invalid_configuration_rejected(self):
         with self.assertRaises(ValueError):
             PathPolicy("typo")

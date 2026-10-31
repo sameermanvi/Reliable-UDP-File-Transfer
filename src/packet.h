@@ -15,9 +15,13 @@
 #define FIN_LINGER_MS ((MAX_RETRIES + 2u) * RETRY_TIMEOUT_MS)
 #define START_PAYLOAD_SIZE 12u
 
+/* Header version 1: additive bitmap extension revision 1 negotiates via types
+ * 8/9. Type 10 echoes a DATA sequence and carries network-order (base, bitmap).
+ * Bitmap bit i acknowledges buffered base+i; sequences below base are cumulative. */
 enum packet_type {
     PACKET_START = 1, PACKET_START_ACK, PACKET_DATA, PACKET_ACK,
-    PACKET_FIN, PACKET_FIN_ACK, PACKET_ERROR
+    PACKET_FIN, PACKET_FIN_ACK, PACKET_ERROR,
+    PACKET_START_SACK, PACKET_START_SACK_ACK, PACKET_SACK
 };
 
 struct packet {

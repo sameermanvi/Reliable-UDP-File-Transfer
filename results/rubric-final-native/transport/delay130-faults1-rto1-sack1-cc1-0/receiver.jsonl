@@ -1,0 +1,7 @@
+{"event":"out_of_order","monotonic_ns":12499436931000,"transfer_id":"7f10c266c062db0a","sequence":11,"base":10,"value":0.000,"reason":"buffered"}
+{"event":"gap_detected","monotonic_ns":12499437263000,"transfer_id":"7f10c266c062db0a","sequence":11,"base":10,"value":0.000,"reason":"missing_base"}
+{"event":"out_of_order","monotonic_ns":12499437392000,"transfer_id":"7f10c266c062db0a","sequence":12,"base":10,"value":0.000,"reason":"buffered"}
+{"event":"gap_detected","monotonic_ns":12499437416000,"transfer_id":"7f10c266c062db0a","sequence":12,"base":10,"value":0.000,"reason":"missing_base"}
+{"event":"out_of_order","monotonic_ns":12499700390000,"transfer_id":"7f10c266c062db0a","sequence":13,"base":10,"value":0.000,"reason":"buffered"}
+{"event":"gap_detected","monotonic_ns":12499700509000,"transfer_id":"7f10c266c062db0a","sequence":13,"base":10,"value":0.000,"reason":"missing_base"}
+{"event":"hole_filled","monotonic_ns":12499962220000,"transfer_id":"7f10c266c062db0a","sequence":10,"base":10,"value":0.000,"reason":"ordered_drain"}

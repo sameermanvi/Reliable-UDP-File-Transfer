@@ -1,32 +1,45 @@
-# Measuring transfer progress
+# Progress and protocol event logs
 
-Set `RUDP_PROGRESS_LOG` on the client when measuring interrupted transfers:
+Each endpoint can set `RUDP_PROGRESS_LOG` to its own fresh path. Creation is
+exclusive; records flush immediately. Logging failures fail the process. Do not
+reuse a path across processes. Monotonic nanoseconds are comparable across Linux
+Mininet namespaces on the same kernel, not across physical machines.
 
-```sh
-RUDP_PROGRESS_LOG=/tmp/upload-progress.jsonl \
-  ./src/client 127.0.0.1 9000 /path/to/input.bin
-```
+`ack_progress` retains `base`, `bytes`, `monotonic_ns` and includes `transfer_id` for joining.
+Other records contain `event`, `monotonic_ns`, hex `transfer_id`, `sequence`,
+`base`, numeric `value`, and `reason`:
 
-The log path must not exist. The client creates it exclusively to avoid
-overwriting an input file or an earlier experiment. An open, write or close
-failure makes the client return a nonzero status.
+| Event | Value / interpretation |
+| --- | --- |
+| send | Slot RTO in ms; original DATA |
+| retransmit | Slot timeout in ms; reason timeout or fast_gap |
+| ack_received | Bitmap numeric value, or zero for individual ACK |
+| window_advance | Current cwnd; contiguous prefix advanced |
+| rto_update | Global RTO ms; rtt_sample or timeout_backoff |
+| srtt_update | Smoothed RTT ms |
+| cwnd_change | Congestion window in packets; initial/new_ack/timeout/fast_gap |
+| loss_detected | Expired timer ms or distinct later-ACK count |
+| out_of_order / gap_detected | Receiver arrival above missing base |
+| hole_filled | Receiver base arrival unlocks buffered suffix |
 
-Each JSON line records an advance in the contiguous acknowledged prefix:
+`ack_received` logs valid ACK arrivals, including duplicates; only new coverage
+trains congestion growth and gap evidence. Receiver logs belong to its own file.
+The sender's gap reasoning can therefore be checked against actual receiver state.
 
-```json
-{"event":"ack_progress","monotonic_ns":123456789000,"base":32,"bytes":32768}
-```
+Join with controller link_down, path_health, route_installing and route_ready
+records using `scripts/plot_timeline.py`. Red dashed markers are link-down;
+green dashed markers are barrier-confirmed readiness. A later ACK is progress
+observed after switching, not proof of which physical path carried that ACK.
+Use final hash verification and retain raw logs alongside plots.
 
-`base` is the number of consecutive DATA chunks acknowledged from sequence zero.
-`bytes` is the corresponding file prefix, capped at the declared file size.
-An out-of-order ACK does not advance this value until the gap has been filled.
-Each line is flushed immediately. Empty files produce an empty log.
+Controller `probe_result` records path, direction, success, elapsed delay_ms and
+monotonic_ns. `path_health` includes fresh branch scores and directional sample
+counts; scores combine EWMA loss and latency and are not pure loss rates.
+`route_decision` records previous/selected path, cause and scores; suppressed
+soft moves report hold_down_or_barrier. `route_installing` and `route_ready`
+carry generation and path. Invalid sender reports emit ack_rejected/invalid_sack.
 
-Timestamps use POSIX `CLOCK_MONOTONIC` in nanoseconds. Compare them only with
-the same clock on the same machine, for example Python
-`time.clock_gettime_ns(time.CLOCK_MONOTONIC)`. They are not wall-clock timestamps.
-
-Progress is not completion: FIN/FIN_ACK and the receiver's integrity check still
-determine whether the transfer succeeds. Enabling logging does not change the
-packet format, but file I/O can affect timing; enable it consistently in all
-compared experiments.
+Recovery JSON includes failure, observed-link-down, route-ready and useful-ACK
+nanoseconds plus the component intervals and recovered/censored/inactive status.
+The primary reported latency is observed link_down to useful ACK; injection-to-ACK
+is a separate metric. Strictly later prefix progress is required after route_ready.

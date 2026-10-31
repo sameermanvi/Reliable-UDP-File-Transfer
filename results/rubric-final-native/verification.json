@@ -1,0 +1,21 @@
+{
+  "tests_by_suite": [
+    8,
+    5,
+    4,
+    3,
+    12,
+    11,
+    5
+  ],
+  "total_tests": 48,
+  "transfers": 60,
+  "all_hashes_match": true,
+  "scope": "Final native transport, probe/policy/recording-adapter tests; final Linux SDN pending",
+  "evidence": [
+    "tests.log",
+    "build.log",
+    "transport/environment.json",
+    "transport/metrics.csv"
+  ]
+}

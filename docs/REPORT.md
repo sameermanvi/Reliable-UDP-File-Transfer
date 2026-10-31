@@ -1,109 +1,105 @@
-# Reliable UDP File Transfer with SDN Failure Recovery
+# Reliable UDP transfer with SDN recovery — final report
 
-## Objective
+## Objective and assessed behavior
 
-Transfer binary files correctly over UDP while an SDN controller detects a link
-failure and moves the active transfer to another path. The application supplies
-ordering, acknowledgments, retransmission, duplicate suppression and integrity
-checks. Mininet supplies the controlled network and OS-Ken programs its switches.
+Transfer binary files correctly through loss, corruption, duplication and
+reordering, while SDN restores a broken path during the same upload. The C
+application provides Selective Repeat reliability; OS-Ken controls the Mininet
+diamond. Correctness requires explicit completion, size/CRC agreement and final
+independent SHA-256 equality. Silence is failure, never successful completion.
 
 ## Implementation
 
-The C sender keeps up to 32 chunks in flight. Each chunk carries a sequence
-number and CRC-32. The receiver buffers out-of-order chunks and acknowledges
-individual packets. A missing acknowledgment triggers a retry after 200 ms;
-30 retries bound the time spent on an unreachable peer. START declares the file
-size and CRC, and FIN completes the upload only after the receiver verifies both.
-The output is installed using a temporary file and rename.
+The final system has a version-1 24-byte header and an explicitly negotiated
+bitmap ACK extension. Adaptive DATA RTO uses SRTT, variation, Karn sampling and
+bounded backoff; distinct later ACK coverage supports fast retransmit. A capped
+congestion window is independent of the 32-slot receiver window. Legacy ACK and
+fixed-RTO modes remain selectable. Wire validation precedes state mutation.
 
-The network has two hosts and four OpenFlow 1.3 switches. Both branches have the
-same configured bandwidth and delay. The controller initially chooses the upper
-branch. Port-status events identify a failed link. In failover mode the controller
-updates both host ingress rules to select the lower branch and waits for switch
-barrier replies before recording route readiness. Static mode retains its
-original route. See [architecture](ARCHITECTURE.md) for ports and packet fields.
+Static routing keeps the initial branch. Failover routing immediately excludes
+hard failures. Bidirectional Ethernet probes independently exercise both live
+branches, including an idle backup. Fresh EWMA loss/elapsed-latency scores,
+hysteresis and a route hold-down govern soft moves; hard failure bypasses the
+hold-down. Barrier-confirmed route_ready and continued ACK progress remain
+separate observations. Details and limits are in ARCHITECTURE.md.
 
-## Experimental method
+## Method and metrics
 
-Run the same file and transport implementation with both routing policies under
-three conditions: normal operation, configured random packet loss, and failure
-of link s1–s2 during an active transfer. Use at least three repetitions. The
-runner waits for every client to acknowledge data before starting the failure
-timer, checks that all clients are still running, and rejects trials in which
-the file finished before the intervention.
+The final Linux evaluation command is:
 
-The default file is 4 MiB, each inter-switch link is limited to 10 Mb/s, and each
-inter-switch egress has 5 ms delay. The loss case configures 2% loss on each
-inter-switch egress, including the reverse direction; this is not a measured
-end-to-end loss rate. Loss is enabled after initial connectivity is verified and
-before either endpoint starts. The file generator is seeded, but Linux netem loss draws
-and process scheduling vary between trials. Repetitions quantify that variation.
+```sh
+sudo .venv/bin/python scripts/evaluate.py --output results/rubric-final
+```
 
-The client/server pair is held constant in the static/failover comparison.
-This isolates routing policy; it is not a speed comparison with FTP or TCP.
-Concurrent trials use independent clients and receiver processes on separate
-ports. Their observations share a network and must not be counted as independent
-repetitions when discussing statistical confidence.
+It runs tests first, then at least three independent repetitions of routing ×
+RTO × ACK format with 0/2% configured per-egress loss and failure times 0.5/1.5 s
+after observed ACK progress. It additionally tests lower→upper recovery,
+loss/reordering/short primary flaps and soft loss without link-down. CC is held off
+in the main comparison to avoid confounding those axes. Source fingerprints,
+environment, raw events, flow/queue dumps, all trial outcomes and hashes are saved.
+Linux netem random draws and virtualization scheduling vary; the input generator
+is seeded, which does not make the network stochastic process deterministic.
 
-## Metrics and evidence
-
-| Metric | Definition |
+| Metric | Exact definition |
 | --- | --- |
-| Completion | Both endpoints exit successfully and the final SHA-256 and file size match |
-| Payload goodput | Original file bits divided by START-to-FIN_ACK time; excludes metadata scan and receiver linger |
-| Retransmissions | Extra DATA sends by the client; ACK loss can also cause these, so they are not a packet-loss estimate |
-| Route installation time | Time from the failure command request to the controller's lower-path `route_ready` event |
-| Progress recovery time | Time from the failure command request to the first new contiguous ACK progress after lower-path readiness |
-| ACK gap | Time from the last progress before failure to the first progress counted as recovered |
-| Expected outcome | Normal/loss and failover trials complete; static link-failure trials exhaust DATA retries and the receiver times out without installing output |
+| Success | Both endpoint exits are zero; output size and independent SHA-256 match input |
+| Goodput | File payload bits / client START-to-FIN_ACK interval, excluding metadata scan and receiver linger |
+| Retransmissions | Extra DATA sends; includes retries caused by lost ACKs, not a loss-rate estimate |
+| Completion rate | Successful flows / all observed flows, including expected static failures |
+| Primary recovery latency | Matching controller link_down → first strictly later new contiguous ACK prefix after alternate route_ready |
+| Injection recovery | Failure-command start → that same useful prefix advancement |
+| Route installation | Failure-command start → barrier-confirmed alternate route_ready |
+| Censored recovery | No qualifying route or later useful progress before observation ends/next intervention; reported N/A |
 
-All experiment timestamps use `CLOCK_MONOTONIC` on the same Linux system.
-Failure-command start/end timestamps expose the intervention duration. OpenFlow
-barriers show that flow modifications were processed, not that every packet
-was forwarded. The progress log and final integrity check provide application
-evidence. Recovery is an observed progress interval, not a measurement of an
-individual packet's latency.
+Reports retain failed rows and distinguish expected static failure from successful
+transfer. Means/min–max use successful flows; numeric sample counts are explicit.
+Multiple concurrent flows share one network trial and are not independent repeats.
+Barrier completion is not globally atomic switching or proof of an ACK's physical
+route. The final hash is independent evidence of application delivery.
 
-Keep `environment.json`, `metrics.csv`, `metrics.json`, controller logs, progress
-logs and endpoint logs. The environment record includes a fingerprint of the
-measured source files. `scripts/plot_metrics.py` generates completion, goodput,
-retransmission and recovery figures plus a summary table. Performance means and
-min–max ranges use successful flows; completion rates include every trial.
-Unavailable measurements remain N/A rather than being converted to zero.
+## Executed findings and evidence
 
-## Results
+The final local evaluation passed 48 automated tests and 60/60 independently
+hash-verified transfers. Adaptive RTO halved retries (64→32) at 260 ms nominal RTT
+without loss. Bitmap feedback reduced retries 4→1 in the low-delay DATA/ACK-loss
+case. Together they reduced high-delay fault retries 72→33. These are three-repeat
+64 KiB localhost proxy comparisons, not Mininet throughput benchmarks. Goodput in
+the high-delay fault case changed little (0.7093→0.7090 Mb/s). Capped slow start
+lowered short uncontended-flow goodput; a fairness/queueing benefit was not tested.
 
-The completed evaluation met all 18 expected outcomes. Each cell below uses
-three independent trials; goodput averages use successful transfers only.
+Artifacts: [test log](../results/rubric-final-native/tests.log),
+[hash-bearing metrics](../results/rubric-final-native/transport/metrics.csv),
+[environment](../results/rubric-final-native/transport/environment.json),
+[summaries/plots](../results/rubric-final-native/transport/plots/summary.md).
+See KEY_RESULTS.md for the short table and direct plot links.
 
-| Scenario | Static completion | Failover completion | Static goodput (Mb/s) | Failover goodput (Mb/s) |
-| --- | --- | --- | ---: | ---: |
-| Normal | 3/3 | 3/3 | 9.217 | 9.217 |
-| 2% loss per egress | 3/3 | 3/3 | 1.328 | 1.300 |
-| Link failure | 0/3 (expected) | 3/3 | N/A | 8.724 |
+Historical integration evidence is kept separate. A 29 October real Mininet
+trial shows link_down → route_ready → useful ACK in 0.196215 s from observed
+link-down (0.199520 s from injection). Its exact timestamps, original output hash
+record and archive identity are retained in
+[historical provenance](../results/rubric-integration-history/provenance.json) and
+[recovery analysis](../results/rubric-integration-history/recovery.json).
+The original [three-repeat evaluation](../results/evaluation-2026-10-29/plots/summary.md)
+has 3/3 failover successes versus 0/3 expected static successes under permanent
+failure. Those results describe that historical source revision only.
 
-Failover restored contiguous ACK progress in 0.1952–0.1995 s (mean 0.1972 s).
-All successful outputs matched SHA-256. A separate two-flow link-failure trial
-also completed both files, each at 4.540 Mb/s; these two flows share one trial.
-The loss results show the cost of retransmission with the fixed window and
-retry timer. Similar normal goodput reflects the identical active path before
-failure. Three repetitions support this demonstration, not broad statistical
-claims about other networks.
+## Validation still required before submission
 
-See [summary and plots](../results/evaluation-2026-10-29/plots/summary.md),
-[concurrent results](../results/concurrent-2026-10-29/metrics.csv), and
-[validation](VALIDATION.md). Raw evidence is packaged in each result directory.
+Final adaptive-transport + probe-controller Mininet execution is **pending**.
+The native environment is macOS and the Docker daemon is unavailable; see the
+[pending plan](../results/rubric-linux-plan/README.md) and
+[environment evidence](../results/rubric-linux-plan/environment-check.txt).
+Do not claim final Linux hard-failure recovery, probe-driven soft recovery or
+combined netem/flap robustness until the final evaluation produces successful
+hash-verified artifacts. Policy/probe tests and recording-adapter OpenFlow tests
+check logic and messages; they do not substitute for real switches.
 
-## Limits and discussion
+## Deliberate limits
 
-The controller knows this diamond's port map; arbitrary topology discovery,
-congestion-aware routing, encryption, authentication and restart/resume are
-outside this implementation. CRC-32 detects accidental errors and does not
-authenticate a sender. A fixed window and timer do not provide adaptive
-congestion control. Outages beyond the retry budget can still fail a transfer.
-
-The userspace OVS datapath used in Docker differs from the kernel datapath on a
-native Linux host. CPU scheduling, virtualization and progress-log I/O affect
-timing. Report the actual environment and repeat on the assessment machine.
-Each receiver process accepts one upload; concurrent experiments do not turn it
-into a shared multi-client file service.
+This is a topology-specific lab uploader, not TCP or an FTP-compatible service.
+It omits authentication, encryption, persistent resume, arbitrary topology
+discovery, mature fairness/pacing and crash durability. Probes include control
+channel delay and sample loss noisily. Window 32 caps memory and throughput.
+Long outages exceed inactivity/retry budgets. Virtualized userspace OVS timings
+must not be generalized to physical switches without measurement. No frontend
+or unrelated portfolio work was needed for the rubric.

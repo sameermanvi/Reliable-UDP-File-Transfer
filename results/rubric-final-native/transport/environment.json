@@ -1,0 +1,11 @@
+{
+  "source_sha256": "0f108bbfa79d18e55cc93ed972cf72f6d7fd0acc04cde3d85bd1862a58b67f33",
+  "delays_ms": [
+    5,
+    130
+  ],
+  "repeats": 3,
+  "size": 65536,
+  "clock": "monotonic",
+  "scope": "localhost deterministic proxy; not Mininet"
+}
