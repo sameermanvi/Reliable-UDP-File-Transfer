@@ -127,3 +127,7 @@ validate the new probe controller. Do not mix historical and current source runs
 Assessment checklist: [rubric mapping](docs/RUBRIC_MAPPING.md).
 Prioritized file changes: [completion plan](docs/RUBRIC_FINISH.md).
 Technical defense: [viva](docs/VIVA.md). Findings and limits: [report](docs/REPORT.md).
+
+## License
+
+[MIT](LICENSE).
