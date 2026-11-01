@@ -176,6 +176,29 @@ class LocalTests(unittest.TestCase):
             finally:
                 stop(receiver)
 
+    def test_transfer_with_spaces_in_filenames(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            source = folder / 'input file with spaces.bin'
+            output = folder / 'received file with spaces.bin'
+            trace = folder / 'progress log.jsonl'
+            data = os.urandom(4097)
+            source.write_bytes(data)
 
+            receiver, address = server(output)
+            try:
+                result = subprocess.run(
+                    [str(CLIENT), address[0], str(address[1]), str(source)],
+                    env=dict(os.environ, RUDP_PROGRESS_LOG=str(trace)),
+                    capture_output=True, text=True, timeout=15
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+                _, stderr = receiver.communicate(timeout=12)
+                self.assertEqual(receiver.returncode, 0, stderr)
+                self.assertTrue(output.exists())
+                self.assertEqual(output.read_bytes(), data)
+            finally:
+                stop(receiver)
 if __name__ == '__main__':
     unittest.main(verbosity=2)
