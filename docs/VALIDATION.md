@@ -119,8 +119,5 @@ Historical material is preserved in [the archive](../results/archive/README.md).
 ## Source identity after repository cleanup
 
 These measurements are retained from commit
-`79f097dea2ae8f61e70dd4558816531dfbbb97a5`. Subsequent cleanup changes
-documentation, archives superseded material and adds explanatory comments/header
-parameter names; it does not alter protocol or controller execution. The recorded
-source fingerprints describe the measured revision, not a newly executed Linux
-evaluation of the cleaned checkout.
+`79f097dea2ae8f61e70dd4558816531dfbbb97a5`. This newer client/codec interface has separate localhost checks. The recorded Linux
+measurements describe the earlier commit and its original source fingerprints.

@@ -1,2 +1,5 @@
 # Keep raw experiment output intact, including CSV CRLF and compiler spacing.
 results/** -whitespace
+results/** linguist-generated
+scripts/** linguist-detectable=false
+tests/** linguist-detectable=false

@@ -7,7 +7,7 @@ Eventlet dependency. Use a prepared **Linux** host with Mininet, OVS and OS-Ken.
 ```sh
 sudo sh scripts/setup_env.sh                 # setup once; needs package access
 make test                                   # preflight before the presentation
-sudo .venv/bin/python scripts/demo.py --mode failover --output results/live-failover
+sudo .venv/bin/python scripts/run.py demo --mode failover --output results/live-failover
 ```
 
 The command owns topology/controller/endpoint startup and cleanup. It:
@@ -31,10 +31,10 @@ endpoint logs, `outages-0.json`, and initial/final flow and queue dumps.
 ## Static contrast and robustness (ready, not all needed live)
 
 ```sh
-sudo .venv/bin/python scripts/demo.py --mode static --output results/live-static
-sudo .venv/bin/python scripts/demo.py --initial-path lower --output results/live-lower
-sudo .venv/bin/python scripts/demo.py --scenario robust --output results/live-robust
-sudo .venv/bin/python scripts/demo.py --scenario soft-degradation --mib 16 --output results/live-soft
+sudo .venv/bin/python scripts/run.py demo --mode static --output results/live-static
+sudo .venv/bin/python scripts/run.py demo --initial-path lower --output results/live-lower
+sudo .venv/bin/python scripts/run.py demo --scenario robust --output results/live-robust
+sudo .venv/bin/python scripts/run.py demo --scenario soft-degradation --mib 16 --output results/live-soft
 ```
 
 Static contrast keeps the broken branch: no alternate route_ready, client fails,
@@ -53,7 +53,7 @@ Docker alternative after starting Docker Desktop/Engine:
 
 ```sh
 docker build -t rudp-lab .
-docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/demo.py --mode failover --datapath user --output results/live-failover
+docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/run.py demo --mode failover --datapath user --output results/live-failover
 ```
 
 ## Retained evaluation
@@ -65,7 +65,7 @@ Do not run the full matrix during a ten-minute presentation.
 For a new full run use a fresh output directory:
 
 ```sh
-docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/evaluate.py --output "results/evaluation-$(date +%Y%m%d-%H%M%S)"
+docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/run.py evaluate --output "results/evaluation-$(date +%Y%m%d-%H%M%S)"
 ```
 
 ## Ten-minute assessment sequence

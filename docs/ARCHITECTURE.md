@@ -60,6 +60,11 @@ base, all set bits and consistency between echo and coverage before mutating any
 state. Bits cannot acknowledge unsent DATA. CRC protects accidental corruption;
 neither CRC nor transfer ID authenticates a malicious endpoint.
 
+The C state machine uses START, DATA, ACK, FIN and ERROR with flags for SACK
+negotiation, bitmap presence and control replies. The codec maps legal combinations
+to the v1 byte at offset 5. All 24 bytes are allocated, so adding a separate flag
+octet would change existing packets.
+
 Header v1 stays unchanged; explicit types 8/9 negotiate the single bitmap
 extension revision. This is not an automatic downgrade protocol: an old server
 requires `RUDP_SACK=0`. New servers accept both modes. Wrong START_ACK type cannot

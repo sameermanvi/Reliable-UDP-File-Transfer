@@ -38,9 +38,9 @@ jobs:
         run: sudo bash scripts/setup_env.sh
       - name: Exercise normal, loss and link failure
         run: |
-          sudo .venv/bin/python scripts/run_experiments.py --repeats 1 --output results/ci
-          sudo .venv/bin/python scripts/run_experiments.py --scenarios link-failure --modes failover --flows 2 --repeats 1 --output results/ci-concurrent
-          .venv/bin/python scripts/plot_metrics.py results/ci/metrics.csv --output results/ci/plots
+          sudo .venv/bin/python scripts/run.py experiment --repeats 1 --output results/ci
+          sudo .venv/bin/python scripts/run.py experiment --scenarios link-failure --modes failover --flows 2 --repeats 1 --output results/ci-concurrent
+          .venv/bin/python scripts/run.py plot results/ci/metrics.csv --output results/ci/plots
       - name: Save logs and measurements
         if: always()
         uses: actions/upload-artifact@v4

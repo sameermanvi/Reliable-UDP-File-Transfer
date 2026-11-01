@@ -16,7 +16,7 @@ Read ARCHITECTURE.md for state/packet details and DESIGN_DECISIONS.md for why.
 | `controller/routing.py` | `PathPolicy.choose` | Exclude hard failures; prefer materially better fresh health |
 | `controller/probes.py` | `ProbeTracker` | Validate independent branch probes, expire losses, smooth directional samples |
 | `controller/failover.py` | `_monitor`, `port_status`, `_reconcile`, `barrier_reply` | Probe scheduling, hard-failure events, rule installation and readiness |
-| `scripts/run_experiments.py` | `run_trial`, `recovery_metrics` | Inject faults, verify endpoint/hash outcomes and join recovery events |
+| `scripts/commands/run_experiments.py` | `run_trial`, `recovery_metrics` | Inject faults, verify endpoint/hash outcomes and join recovery events |
 | `scripts/evaluate.py` | `linux_plan`, `main` | Run tests and repeated matrix; save manifest and plots |
 
 ## Follow one transfer
@@ -35,6 +35,10 @@ Read ARCHITECTURE.md for state/packet details and DESIGN_DECISIONS.md for why.
    The harness compares independent SHA-256 digests before deleting payloads.
 
 ## Script entry points
+
+Use `python3 scripts/run.py {demo,evaluate,benchmark,experiment,plot,timeline} --help`.
+Implementations live in `scripts/commands/` and shell helpers in `scripts/docker/`.
+Existing demo.py, evaluate.py and setup_env.sh calls remain supported.
 
 - `setup_env.sh`: native Ubuntu 22.04 packages, Python environment and OVS setup.
 - `container_entrypoint.sh`: private container OVS database/daemon startup.

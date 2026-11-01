@@ -5,11 +5,11 @@ import tempfile
 import unittest
 
 spec = importlib.util.spec_from_file_location(
-    "experiments", Path(__file__).resolve().parents[1] / "scripts/run_experiments.py")
+    "experiments", Path(__file__).resolve().parents[1] / "scripts/commands/run_experiments.py")
 experiments = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(experiments)
 plot_spec = importlib.util.spec_from_file_location(
-    "plots", Path(__file__).resolve().parents[1] / "scripts/plot_metrics.py")
+    "plots", Path(__file__).resolve().parents[1] / "scripts/commands/plot_metrics.py")
 plots = importlib.util.module_from_spec(plot_spec)
 plot_spec.loader.exec_module(plots)
 

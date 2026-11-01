@@ -18,14 +18,12 @@
 /* Header version 1: additive bitmap extension revision 1 negotiates via types
  * 8/9. Type 10 echoes a DATA sequence and carries network-order (base, bitmap).
  * Bitmap bit i acknowledges buffered base+i; sequences below base are cumulative. */
-enum packet_type {
-    PACKET_START = 1, PACKET_START_ACK, PACKET_DATA, PACKET_ACK,
-    PACKET_FIN, PACKET_FIN_ACK, PACKET_ERROR,
-    PACKET_START_SACK, PACKET_START_SACK_ACK, PACKET_SACK
-};
+enum packet_type { PACKET_START = 1, PACKET_DATA, PACKET_ACK, PACKET_FIN, PACKET_ERROR };
+enum packet_flags { SACK_CAPABLE = 1, SACK_BITMAP_PRESENT = 2, CONTROL_REPLY = 4 };
 
 struct packet {
     uint8_t type;
+    uint8_t flags;
     uint64_t transfer_id;
     uint32_t sequence;
     uint16_t length;

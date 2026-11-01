@@ -4,4 +4,4 @@ services:
     privileged: true
     volumes:
       - ./results:/project/results
-    command: [python, scripts/demo.py]
+    command: [python, scripts/run.py, demo]
