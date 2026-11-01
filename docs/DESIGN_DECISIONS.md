@@ -21,5 +21,10 @@ this lab exposes reliable datagram state and its interaction with SDN forwarding
 The fixed timer, plain ACKs and static route are meaningful controlled baselines,
 not deliberately broken implementations.
 
-Wire and estimator details: ARCHITECTURE.md. Exact file-level work order:
-RUBRIC_FINISH.md. Claims and their artifacts: REPORT.md and VALIDATION.md.
+Wire and estimator details: ARCHITECTURE.md. Implementation navigation: CODE_MAP.md. Claims and their artifacts: REPORT.md and VALIDATION.md.
+
+Probe timing: a 250 ms send interval tracks both branches with about 16 frames/s;
+a 500 ms deadline tolerates delayed replies. Four fresh samples reduce premature
+health decisions; the 2 s hold-down limits soft-route oscillation. These are lab
+tradeoffs, not universally optimal settings. Recovery requires contiguous ACK
+advancement after route barriers so duplicate ACKs do not count as progress.

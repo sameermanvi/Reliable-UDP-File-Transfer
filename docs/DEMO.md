@@ -1,6 +1,8 @@
-# How to demo this live (one page)
+# Live demonstration
 
-Use a prepared **Linux** host with Mininet, OVS and OS-Ken. From the repository:
+The validated route is Ubuntu 22.04 Docker with userspace OVS (Docker command below).
+Native setup targets Ubuntu 22.04; newer Python versions may not support the pinned
+Eventlet dependency. Use a prepared **Linux** host with Mininet, OVS and OS-Ken. From the repository:
 
 ```sh
 sudo sh scripts/setup_env.sh                 # setup once; needs package access
@@ -54,6 +56,28 @@ docker build -t rudp-lab .
 docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/demo.py --mode failover --datapath user --output results/live-failover
 ```
 
-Final repeated evaluation: `sudo .venv/bin/python scripts/evaluate.py --output
-results/rubric-final`. New probe/flap behavior still needs this Linux execution;
-localhost tests and historical plots do not establish final Mininet convergence.
+## Retained evaluation
+
+The completed three-repeat Linux Docker/userspace OVS evaluation met 180/180
+expectations. See [Key Results](KEY_RESULTS.md) and [validation](VALIDATION.md).
+Do not run the full matrix during a ten-minute presentation.
+
+For a new full run use a fresh output directory:
+
+```sh
+docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/evaluate.py --output "results/evaluation-$(date +%Y%m%d-%H%M%S)"
+```
+
+## Ten-minute assessment sequence
+
+1. Explain the two independent responsibilities: UDP reliability and SDN routing.
+2. Show the diamond in ARCHITECTURE.md, then run one failover demo.
+3. Point out initial route, injected link-down, alternate route readiness,
+   hash-matched completion, and the joined timeline.
+4. Show KEY_RESULTS.md for static contrast and repeated measurements.
+5. Use CODE_MAP.md to locate the requested implementation; VIVA.md gives the
+   design rationale. Keep a retained final timeline available if live setup fails.
+
+The console's `recovery=` is injection-to-progress, not link-down-to-progress.
+The CSV and joined events distinguish both. Never label a startup failure or
+uninjected transfer as successful failover.

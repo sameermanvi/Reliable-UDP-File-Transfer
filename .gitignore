@@ -1,19 +1,33 @@
+# Build products
 /client
 /server
 /src/client
 /src/server
 /src/*.o
-__pycache__/
+
+# Python environments and caches
 .venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local experiment outputs; retain the two verified bundles and history archive
 /results/*
 !/results/README.md
-!/results/validation/
-
-*.part.??????
-!/results/evaluation-2026-10-29/
-!/results/concurrent-2026-10-29/
-!/results/reliability-verified/
-
+!/results/rubric-final/
 !/results/rubric-final-native/
-!/results/rubric-integration-history/
-!/results/rubric-linux-plan/
+!/results/archive/
+*.part.??????
+
+# OS/editor scratch files
+.DS_Store
+._*
+Thumbs.db
+*~
+*.swp
+*.swo
+.vscode/
+.idea/

@@ -73,26 +73,17 @@ Artifacts: [test log](../results/rubric-final-native/tests.log),
 [summaries/plots](../results/rubric-final-native/transport/plots/summary.md).
 See KEY_RESULTS.md for the short table and direct plot links.
 
-Historical integration evidence is kept separate. A 29 October real Mininet
-trial shows link_down → route_ready → useful ACK in 0.196215 s from observed
-link-down (0.199520 s from injection). Its exact timestamps, original output hash
-record and archive identity are retained in
-[historical provenance](../results/rubric-integration-history/provenance.json) and
-[recovery analysis](../results/rubric-integration-history/recovery.json).
-The original [three-repeat evaluation](../results/evaluation-2026-10-29/plots/summary.md)
-has 3/3 failover successes versus 0/3 expected static successes under permanent
-failure. Those results describe that historical source revision only.
+## Final Linux findings
 
-## Validation still required before submission
-
-Final adaptive-transport + probe-controller Mininet execution is **pending**.
-The native environment is macOS and the Docker daemon is unavailable; see the
-[pending plan](../results/rubric-linux-plan/README.md) and
-[environment evidence](../results/rubric-linux-plan/environment-check.txt).
-Do not claim final Linux hard-failure recovery, probe-driven soft recovery or
-combined netem/flap robustness until the final evaluation produces successful
-hash-verified artifacts. Policy/probe tests and recording-adapter OpenFlow tests
-check logic and messages; they do not substitute for real switches.
+The Ubuntu 22.04 container on the Ubuntu 26.04 ARM64 VM completed 180/180
+trial expectations across three repeats: 132 hash-matched successes and 48
+expected static failures. Upper→lower failover passed 48/48, lower→upper 3/3,
+robustness 6/6 and probe soft degradation 3/3. The 57 recovered trial rows have
+median link-down→useful-ACK latency 85.554 ms, mean 116.743 ms, and range
+12.276–401.377 ms. Censored outcomes remain null and are excluded from latency
+statistics. These are userspace OVS measurements, not physical-switch or kernel
+OVS results. [Validation](VALIDATION.md) defines the samples and evidence limits;
+[metrics](../results/rubric-final/matrix/metrics.csv) retain individual outcomes.
 
 ## Deliberate limits
 

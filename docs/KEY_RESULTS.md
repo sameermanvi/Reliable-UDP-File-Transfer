@@ -30,26 +30,6 @@ Plots: [retry counts](../results/rubric-final-native/transport/plots/retransmits
 [goodput](../results/rubric-final-native/transport/plots/goodput_mbps.svg),
 [adaptive RTO/CWND trace](../results/rubric-final-native/transport/trace/timeline.svg).
 
-## Socket–SDN integration: real historical trace, separately labeled
-
-A retained 29 October failover trial records:
-
-| Observed sequence | Monotonic time / interval |
-| --- | ---: |
-| Controller link_down | 596653470563 ns |
-| Alternate route_ready | 596655523230 ns |
-| First new useful post-route ACK prefix | 596849685230 ns |
-| link_down → useful ACK | 0.196215 s |
-| Injection request → useful ACK | 0.199520 s |
-
-Open the [joined timeline](../results/rubric-integration-history/timeline.svg),
-[computed recovery](../results/rubric-integration-history/recovery.json) and
-[provenance/original hash record](../results/rubric-integration-history/provenance.json).
-This is evidence for the earlier integrated implementation, not new probe runtime
-validation. Across the historical three-repeat network evaluation, static failed
-all three permanent-link cases and failover completed all three; see the original
-[summary](../results/evaluation-2026-10-29/plots/summary.md).
-
 ## Final Linux Docker evaluation: completed, three repeats
 
 [Manifest](../results/rubric-final/evaluation.json) and

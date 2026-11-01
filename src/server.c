@@ -34,6 +34,8 @@ static int data_ack(int fd, const struct sockaddr_in *peer, uint64_t id,
     if (!sack) return reply(fd, peer, id, PACKET_ACK, sequence);
     struct packet ack = {.type = PACKET_SACK, .transfer_id = id,
                          .sequence = sequence, .length = 8};
+    /* Repeating buffered coverage repairs ACK loss without resending DATA.
+     * base was drained before this call, so its bit must remain clear. */
     uint32_t bitmap = 0;
     for (unsigned int bit = 0; bit < WINDOW_SIZE; ++bit)
         if ((uint64_t)base + bit <= UINT32_MAX && slots[(base + bit) % WINDOW_SIZE].occupied)
@@ -211,6 +213,8 @@ int main(int argc, char *argv[])
                 report_error(fd, &client, id, "File size or CRC32 mismatch");
                 break;
             }
+            /* Publish only a verified complete file; a failed session must
+             * leave any previous destination intact. Rename is not fsync. */
             int close_result = fclose(output);
             output = NULL;
             if (close_result != 0 || rename(temporary_path, argv[2]) != 0) {
