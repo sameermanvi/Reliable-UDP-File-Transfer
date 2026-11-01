@@ -76,7 +76,8 @@ class PathPolicy:
         if current in candidates and not all(path in self.health for path in candidates):
             return current
         best = min(candidates, key=lambda path: self.health.get(path, 0))
-        # Retain the current route unless measured degradation exceeds 2%.
+        # Require a score improvement greater than .02; this score combines
+        # smoothed loss and delay, so the threshold is not a loss percentage.
         if current in candidates and self.health.get(current, 0) <= self.health.get(best, 0) + .02:
             return current
         return best

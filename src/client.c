@@ -69,6 +69,9 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                      struct statistics *stats, FILE *progress)
 {
     struct send_slot slots[WINDOW_SIZE] = {0};
+    /* base is the first unACKed sequence; next is the first never sent.
+     * Epoch boundaries prevent many losses in one window from repeatedly
+     * reducing CWND or backing off the global estimator. */
     uint32_t base = 0, next = 0, recovery_end = 0, backoff_end = 0;
     const char *rto_mode = getenv("RUDP_RTO");
     int adaptive = rto_mode ? strcmp(rto_mode, "adaptive") == 0 : option_enabled("RUDP_ADAPTIVE_RTO");
@@ -78,6 +81,8 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
     progress_event(progress, "cwnd_change", id, 0, 0, cwnd, "initial");
     while (base < packet_count) {
         while (next < packet_count && next - base < WINDOW_SIZE && next - base < (uint32_t)cwnd) {
+            /* The sequence-span bound prevents overwriting a live ring slot
+             * even when later packets were ACKed around a missing prefix. */
             struct send_slot *slot = &slots[next % WINDOW_SIZE];
             memset(slot, 0, sizeof(*slot));
             slot->packet.type = PACKET_DATA;
@@ -191,6 +196,8 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                             variance = .75 * variance + .25 * error;
                             srtt = .875 * srtt + .125 * sample;
                         }
+                        /* Variation uses the OLD SRTT above. A floor avoids
+                         * scheduling jitter causing a burst of premature retries. */
                         rto = srtt + 4 * variance;
                         if (rto < 50) rto = 50;
                         if (rto > 2000) rto = 2000;
@@ -207,6 +214,8 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                         if (!slots[hole % WINDOW_SIZE].acknowledged)
                             ++slots[hole % WINDOW_SIZE].gap_reports;
                 }
+                /* One fast retry per hole: persistent loss must eventually
+                 * use the timer rather than amplify every later ACK. */
                 for (uint32_t seq = base; seq < next; ++seq) {
                     struct send_slot *slot = &slots[seq % WINDOW_SIZE];
                     if (slot->acknowledged || slot->fast_sent || slot->gap_reports < 3) continue;
@@ -225,6 +234,8 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                 }
             }
         }
+        /* ACKs beyond a hole free no sequence span until the prefix closes.
+         * Only this advancement counts as useful recovery progress. */
         uint32_t previous_base = base;
         while (base < next && slots[base % WINDOW_SIZE].acknowledged)
             ++base;

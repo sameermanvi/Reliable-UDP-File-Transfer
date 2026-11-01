@@ -1,24 +1,16 @@
-# Measurements
+# Retained evidence
 
-The `evaluation-2026-10-29` and `concurrent-2026-10-29` directories are historical
-measurements restored with implementation `49f9ae6`; their environment records
-and source fingerprints describe those runs. They are not new measurements.
+| Bundle | Scope |
+| --- | --- |
+| [rubric-final](rubric-final/evaluation.json) | Final Linux Docker/userspace OVS: 180 expectations, 132 hash-matched successes, 48 expected static failures; three repeats |
+| [rubric-final-native](rubric-final-native/evaluation.json) | Final macOS transport evaluation: 48 tests and 60 hash-matched transfers; includes CC comparisons |
+| [archive](archive/README.md) | Superseded experiments, old example and execution plans; provenance only |
 
-The newer `validation` directory is retained as evidence for the simplified
-revision. Do not combine it with restored-protocol results.
+Raw final logs are intentionally retained unchanged for audit. Their millions of
+JSONL events are generated data, not implementation code. Start with
+[Key Results](../docs/KEY_RESULTS.md) and the aggregate CSVs, then open per-trial
+timelines/events when needed. Do not rerun into these directories.
 
-Generate fresh measurements using `scripts/run_experiments.py` and graphs using
-`scripts/plot_metrics.py`, as described in the main README.
-
-
-Final rubric evidence (31 October):
-- `rubric-final-native/`: passing 48-test log, three-repeat 60-transfer local
-  ablation matrix with hashes, summaries and plots. No final SDN runtime claim.
-- `rubric-integration-history/`: unchanged extracted 29 October events and a
-  regenerated joined timeline, with archive/source provenance.
-- `rubric-linux-plan/`: pending execution command plan and unavailable-daemon
-  evidence. This directory contains no measured final Linux trials.
-
-Generate the final network bundle with
-`sudo .venv/bin/python scripts/evaluate.py --output results/rubric-final`.
-Do not merge numbers from different source fingerprints into one comparison.
+These bundles identify the measured source/runtime. Later documentation and
+comment-only cleanup does not constitute a new measured Linux run. Hash equality
+uses recorded input/output digests; the runner did not retain file payloads.

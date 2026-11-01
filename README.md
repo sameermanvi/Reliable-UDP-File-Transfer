@@ -1,133 +1,77 @@
-# Reliable UDP transfer with dynamic SDN recovery
+# Reliable UDP file transfer with SDN failover
 
-A C/POSIX Selective Repeat uploader and OS-Ken controller on a Mininet diamond.
-The application recovers missing datagrams while the controller restores network
-reachability. The live demo keeps one upload running across a path failure and
-verifies the completed file with SHA-256.
+Transfer a binary file over UDP while an SDN controller routes around a failed
+or degraded network path. The C application repairs missing packets; the OS-Ken
+controller restores reachability through a four-switch Mininet diamond.
 
-## Features and validation
+**Verified:** 48 tests, 60/60 localhost transfers, and 180/180 Linux trial
+expectations across three repeats: 132 hash-matched successes and 48 expected
+static-routing failures. Linux measurements used **Ubuntu 22.04 Docker/userspace
+OVS**, not the kernel datapath. [Results and limits](docs/KEY_RESULTS.md).
 
-- Selective Repeat with a 32-packet receive window, negotiated SACK bitmap,
-  adaptive RTO with Karn sampling, and fast gap retransmission.
-- Capped congestion control, with independent switches for controlled comparisons.
-- Static/failover routing and bidirectional health probes with hysteresis.
-- Monotonic JSONL events, joined recovery timelines, and repeatable experiments.
-
-**Verified locally:** 48 automated tests and 60/60 hash-verified transfers.
-**Validated:** Linux Docker/userspace OVS, three repeats: 180/180 expectations met, 132 hash-matched transfers and 48 expected static failures ([evidence](results/rubric-final/evaluation.json)).
-See [Key Results](docs/KEY_RESULTS.md) for measurements and their limits.
-
-## Build and test
-
-Linux or macOS: C11 compiler, Make, Python 3 (no Python packages for local tests).
+Build and test on macOS or Linux (C11 compiler, Make and Python 3):
 
 ```sh
-git clone https://github.com/sameermanvi/Reliable-UDP-File-Transfer.git
-cd Reliable-UDP-File-Transfer
 make
 make test
 ```
 
-In separate terminals, start the client within 10 seconds of the receiver:
+For a prepared Linux Docker host, demonstrate one transfer surviving link failure:
 
 ```sh
-./src/server 9000 /tmp/received.bin
-./src/client 127.0.0.1 9000 /path/to/input.bin
-cmp /path/to/input.bin /tmp/received.bin
+docker build -t rudp-lab .
+docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/demo.py --mode failover --output "results/demo-$(date +%Y%m%d-%H%M%S)"
 ```
 
-Each receiver accepts one upload and exits after a 6.4 s FIN linger. Successful
-verification atomically replaces its destination; ordinary failed transfers
-preserve it. Keep the input unchanged. The protocol has packet CRC, transfer ID,
-size and whole-file CRC, bounded retries and explicit FIN. It is not FTP or TCP.
+Expect `LINK DOWN`, alternate `ROUTE READY`, then `success=True` and
+`sha256_match=True`. [Demo setup, native Linux and static contrast](docs/DEMO.md).
 
-## Reproducible transport switches
+## Application and controls
+
+Start the client in a second terminal within ten seconds of the receiver:
 
 ```sh
-RUDP_RTO=fixed RUDP_SACK=0 RUDP_CC=0 ./src/client 127.0.0.1 9000 input.bin
-RUDP_RTO=adaptive RUDP_SACK=1 RUDP_CC=0 ./src/client 127.0.0.1 9000 input.bin
+./src/server 9000 received.bin
+./src/client 127.0.0.1 9000 input.bin
+cmp input.bin received.bin
 ```
 
-Defaults: adaptive RTO, negotiated bitmap ACKs, capped congestion control on.
-Start a new receiver for each command. `RUDP_RTO` accepts exactly fixed/adaptive;
-`RUDP_SACK=0` selects the original wire exchange for old endpoints. An old server
-cannot negotiate the default bitmap extension. The fixed 24-byte v1 header and
-all packet types are documented in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Each receiver handles one upload. It verifies size and whole-file CRC before
+atomically replacing the destination; failed transfers preserve existing output.
+The experiment harness independently compares SHA-256 digests.
 
-Set `RUDP_PROGRESS_LOG` to a fresh path on each endpoint for flushed JSONL events.
-Use different sender/receiver paths. Both files and controller logs use monotonic
-nanoseconds; never compare clocks from different physical machines.
+| Client switch | Values | Default |
+| --- | --- | --- |
+| `RUDP_RTO` | `fixed`, `adaptive` | `adaptive` |
+| `RUDP_SACK` | `0` (individual ACK), `1` (bitmap) | `1` |
+| `RUDP_CC` | `0` (fixed window), `1` (capped congestion window) | `1` |
 
-## Live failover demo on Linux
+Selective Repeat uses 32 slots; SACK, Karn-safe adaptive timers, bounded backoff,
+fast gap retransmission and congestion control remain independently reproducible.
+For example: `RUDP_RTO=fixed RUDP_SACK=0 RUDP_CC=0 ./src/client 127.0.0.1 9000 input.bin`.
+Use a new receiver for each transfer. Old servers require `RUDP_SACK=0`.
 
-Ubuntu 22.04 is the supplied setup target. Setup needs network package access:
+## Evaluation and repository map
+
+The full evaluation runs tests, a three-repeat routing/RTO/ACK matrix, reverse
+recovery, soft degradation and loss/reordering/flaps. CC is off in that Linux
+matrix; the separate local benchmark includes CC comparisons. It can take over
+an hour. Use a fresh output directory; do not overwrite retained evidence.
 
 ```sh
-sudo sh scripts/setup_env.sh
-sudo .venv/bin/python scripts/demo.py --mode failover --output results/live-failover
-sudo .venv/bin/python scripts/demo.py --mode static --output results/live-static
+docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/evaluate.py --output "results/evaluation-$(date +%Y%m%d-%H%M%S)"
 ```
 
-The failover run starts controller/topology, starts an 8 MiB transfer, kills the
-active branch after 0.5 s of real ACK progress, shows alternate route readiness,
-and checks endpoint exits, output size and SHA-256. The static run must fail
-without installing a finalized output. Each saves a joined timeline and logs.
-See the one-page [live demo](docs/DEMO.md) for lower→upper recovery, soft degradation,
-loss/reordering/flaps, expected console output and Docker commands.
+| Location | Purpose |
+| --- | --- |
+| `src/` | C sender, receiver, packet serialization and socket helpers |
+| `controller/` | Path policy, bidirectional probes and OpenFlow handlers |
+| `mininet/` | Diamond topology and netem impairments |
+| `scripts/` | Setup, demo, evaluation, local benchmark and plots |
+| `tests/` | Protocol, transport, controller and integration tests |
+| `results/` | Final Linux/local evidence and labelled historical archive |
+| `docs/` | [Architecture](docs/ARCHITECTURE.md), [code map](docs/CODE_MAP.md), [design decisions](docs/DESIGN_DECISIONS.md), [validation](docs/VALIDATION.md), [report](docs/REPORT.md), [viva](docs/VIVA.md), [rubric](docs/RUBRIC_MAPPING.md) |
 
-## One command for the final evaluation
-
-```sh
-sudo .venv/bin/python scripts/evaluate.py --output results/rubric-final
-```
-
-This runs the full suite, then a three-repeat static/failover × fixed/adaptive ×
-plain/bitmap comparison with loss rates 0/2% and fault times 0.5/1.5 s. It also runs
-lower→upper recovery, loss/reordering/short flaps and probe-driven soft degradation.
-CC stays off in the main matrix to isolate those effects; local evaluation tests
-and separately ablates CC. Permanent static failures take up to about a minute;
-the full factorial evaluation can take well over an hour. Use `demo.py` first to
-verify infrastructure. Use `--repeats 5` for five repeats; fresh output is required.
-
-Expected output:
-
-```text
-results/rubric-final/
-  evaluation.json, tests.log, runner-*.log, README.md
-  matrix/                 # comparison matrix
-  lower-recovery/         # reverse branch recovery
-  robustness/             # probes, loss, reordering and flaps
-    environment.json, metrics.csv, metrics.json, plots/
-    TRIAL/controller.jsonl, progress-0.jsonl, receiver-0.jsonl
-    TRIAL/client-0.log, server-0.log, interventions.jsonl, outages-0.json
-    TRIAL/network-initial.txt, network-final.txt, plots/timeline.svg
-```
-
-Every successful row requires independent hash equality. All failed rows remain.
-Plots cover goodput, retries, retry fraction, completion and recovery. Recovery
-without a qualifying observation is N/A/censored, never zero.
-
-Without Linux, produce a plan or run the transport evidence only:
-
-```sh
-python3 scripts/evaluate.py --output results/linux-plan --plan-only
-python3 scripts/evaluate.py --output results/local-check --local-only
-```
-
-## Evidence and documentation
-
-The final local bundle has **48 passing tests and 60/60 hash-verified transfers**:
-[validation](docs/VALIDATION.md), [Key Results](docs/KEY_RESULTS.md),
-[raw local metrics](results/rubric-final-native/transport/metrics.csv).
-Final probe-controller/Mininet validation **passed in Ubuntu 22.04 Docker with userspace OVS**: [180-trial evidence](results/rubric-final/evaluation.json).
-The retained [historical joined timeline](results/rubric-integration-history/timeline.svg)
-demonstrates the earlier controller's real socket–SDN integration; it does not
-validate the new probe controller. Do not mix historical and current source runs.
-
-Assessment checklist: [rubric mapping](docs/RUBRIC_MAPPING.md).
-Prioritized file changes: [completion plan](docs/RUBRIC_FINISH.md).
-Technical defense: [viva](docs/VIVA.md). Findings and limits: [report](docs/REPORT.md).
-
-## License
-
-[MIT](LICENSE).
+This is a topology-specific lab implementation, not a production transport.
+It provides no authentication, encryption, persistent resume or TCP fairness.
+[MIT license](LICENSE).
