@@ -27,7 +27,7 @@ trains congestion growth and gap evidence. Receiver logs belong to its own file.
 The sender's gap reasoning can therefore be checked against actual receiver state.
 
 Join with controller link_down, path_health, route_installing and route_ready
-records using `scripts/plot_timeline.py`. Red dashed markers are link-down;
+records using `scripts/commands/plot_timeline.py`. Red dashed markers are link-down;
 green dashed markers are barrier-confirmed readiness. A later ACK is progress
 observed after switching, not proof of which physical path carried that ACK.
 Use final hash verification and retain raw logs alongside plots.

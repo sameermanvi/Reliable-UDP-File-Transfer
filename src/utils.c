@@ -49,13 +49,27 @@ uint32_t crc32_update(uint32_t state, const unsigned char *data, size_t size)
     return state;
 }
 
+/* Byte 5 is a compact v1 encoding of kind + flags. Preserve all legacy
+ * wire values without borrowing bits from the version or length. */
+static const struct { uint8_t type, flags; } forms[] = {
+    {0, 0}, {PACKET_START, 0}, {PACKET_START, CONTROL_REPLY},
+    {PACKET_DATA, 0}, {PACKET_ACK, 0}, {PACKET_FIN, 0},
+    {PACKET_FIN, CONTROL_REPLY}, {PACKET_ERROR, 0}, {PACKET_START, SACK_CAPABLE},
+    {PACKET_START, CONTROL_REPLY | SACK_CAPABLE}, {PACKET_ACK, SACK_BITMAP_PRESENT}
+};
+
 size_t packet_encode(unsigned char *wire, const struct packet *packet)
 {
     if (packet->length > PAYLOAD_SIZE)
         return 0;
     put_u32(wire, PROTOCOL_MAGIC);
     wire[4] = PROTOCOL_VERSION;
-    wire[5] = packet->type;
+    size_t form = 1;
+    while (form < sizeof(forms)/sizeof(forms[0]) &&
+           (forms[form].type != packet->type || forms[form].flags != packet->flags))
+        ++form;
+    if (form == sizeof(forms)/sizeof(forms[0])) return 0;
+    wire[5] = (uint8_t)form;
     wire[6] = (unsigned char)(packet->length >> 8);
     wire[7] = (unsigned char)packet->length;
     put_u64(wire + 8, packet->transfer_id);
@@ -71,7 +85,7 @@ int packet_decode(struct packet *packet, const unsigned char *wire, size_t size)
 {
     if (size < HEADER_SIZE || size > MAX_PACKET_SIZE ||
         get_u32(wire) != PROTOCOL_MAGIC || wire[4] != PROTOCOL_VERSION ||
-        wire[5] < PACKET_START || wire[5] > PACKET_SACK)
+        wire[5] == 0 || wire[5] >= sizeof(forms)/sizeof(forms[0]))
         return -1;
     uint16_t length = (uint16_t)((uint16_t)wire[6] << 8 | wire[7]);
     if (length > PAYLOAD_SIZE || size != HEADER_SIZE + length)
@@ -81,7 +95,8 @@ int packet_decode(struct packet *packet, const unsigned char *wire, size_t size)
     memset(copy + 20, 0, 4);
     if ((crc32_update(UINT32_MAX, copy, size) ^ UINT32_MAX) != get_u32(wire + 20))
         return -1;
-    packet->type = wire[5];
+    packet->type = forms[wire[5]].type;
+    packet->flags = forms[wire[5]].flags;
     packet->transfer_id = get_u64(wire + 8);
     packet->sequence = get_u32(wire + 16);
     packet->length = length;

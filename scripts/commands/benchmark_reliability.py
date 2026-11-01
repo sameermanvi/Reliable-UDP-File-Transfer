@@ -14,8 +14,8 @@ import subprocess
 import threading
 import time
 
-ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location('experiments', ROOT / 'scripts/run_experiments.py')
+ROOT = Path(__file__).resolve().parents[2]
+spec = importlib.util.spec_from_file_location('experiments', ROOT / 'scripts/commands/run_experiments.py')
 experiments = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(experiments)
 

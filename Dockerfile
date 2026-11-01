@@ -15,5 +15,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends ethtool \
 ENV PATH="/opt/sdn/bin:${PATH}"
 COPY . /project
 RUN make -C src
-ENTRYPOINT ["sh", "/project/scripts/container_entrypoint.sh"]
-CMD ["python", "scripts/run_experiments.py", "--datapath", "user"]
+ENTRYPOINT ["sh", "/project/scripts/docker/container_entrypoint.sh"]
+CMD ["python", "scripts/run.py", "experiment", "--datapath", "user"]

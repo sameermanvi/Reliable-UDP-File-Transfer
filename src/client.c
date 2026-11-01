@@ -1,5 +1,8 @@
 #include "utils.h"
 #include <arpa/inet.h>
+#include <getopt.h>
+#include <math.h>
+#include <time.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,7 +26,7 @@ struct statistics {
 
 /* START and FIN are stop-and-wait exchanges; DATA uses Selective Repeat. */
 static int exchange(int fd, const struct sockaddr_in *server,
-                    const struct packet *request, uint8_t expected_type,
+                    const struct packet *request,
                     struct statistics *stats)
 {
     for (unsigned int attempt = 0; attempt <= MAX_RETRIES; ++attempt) {
@@ -54,7 +57,7 @@ static int exchange(int fd, const struct sockaddr_in *server,
                         (int)reply.length, reply.payload);
                 return -1;
             }
-            if (reply.type == expected_type && reply.sequence == request->sequence &&
+            if (reply.type == request->type && reply.flags == (request->flags | CONTROL_REPLY) && reply.sequence == request->sequence &&
                 reply.length == 0)
                 return 0;
         }
@@ -64,18 +67,30 @@ static int exchange(int fd, const struct sockaddr_in *server,
     return -1;
 }
 
+struct transport_options {
+    int adaptive, sack, congestion;
+    double drop_rate;
+};
+
+/* Simulate loss after the send decision so normal ACK/retry logic observes
+ * exactly the same silence it would see after network DATA loss. */
+static int send_data(int fd, const struct packet *packet,
+                     const struct sockaddr_in *peer, double drop_rate)
+{
+    if (drop_rate > 0 && rand() / (RAND_MAX + 1.0) < drop_rate) return 0;
+    return send_packet(fd, packet, peer);
+}
+
 static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                      uint64_t id, uint32_t packet_count, uint64_t file_size,
-                     struct statistics *stats, FILE *progress)
+                     struct statistics *stats, FILE *progress, struct transport_options options)
 {
     struct send_slot slots[WINDOW_SIZE] = {0};
     /* base is the first unACKed sequence; next is the first never sent.
      * Epoch boundaries prevent many losses in one window from repeatedly
      * reducing CWND or backing off the global estimator. */
     uint32_t base = 0, next = 0, recovery_end = 0, backoff_end = 0;
-    const char *rto_mode = getenv("RUDP_RTO");
-    int adaptive = rto_mode ? strcmp(rto_mode, "adaptive") == 0 : option_enabled("RUDP_ADAPTIVE_RTO");
-    int congestion = option_enabled("RUDP_CC");
+    int adaptive = options.adaptive, congestion = options.congestion;
     double srtt = 0, variance = 0, rto = RETRY_TIMEOUT_MS;
     double cwnd = congestion ? 4 : WINDOW_SIZE, threshold = 16;
     progress_event(progress, "cwnd_change", id, 0, 0, cwnd, "initial");
@@ -94,7 +109,7 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                 fprintf(stderr, "Input file changed or could not be read.\n");
                 return -1;
             }
-            if (send_packet(fd, &slot->packet, server) != 0) {
+            if (send_data(fd, &slot->packet, server, options.drop_rate) != 0) {
                 perror("send DATA");
                 return -1;
             }
@@ -118,7 +133,7 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                     fprintf(stderr, "Retry limit reached for DATA %" PRIu32 ".\n", sequence);
                     return -1;
                 }
-                if (send_packet(fd, &slot->packet, server) != 0) {
+                if (send_data(fd, &slot->packet, server, options.drop_rate) != 0) {
                     perror("retransmit DATA");
                     return -1;
                 }
@@ -158,8 +173,8 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                 fprintf(stderr, "Server rejected transfer: %.*s\n", (int)ack.length, ack.payload);
                 return -1;
             }
-            int sack = ack.type == PACKET_SACK && ack.length == 8 && option_enabled("RUDP_SACK");
-            if (((ack.type == PACKET_ACK && ack.length == 0) || sack) &&
+            int sack = ack.type == PACKET_ACK && ack.flags == SACK_BITMAP_PRESENT && ack.length == 8 && options.sack;
+            if (((ack.type == PACKET_ACK && !ack.flags && ack.length == 0) || sack) &&
                 ack.sequence < next) {
                 uint32_t receiver_base = sack ? get_u32(ack.payload) : 0;
                 uint32_t bitmap = sack ? get_u32(ack.payload + 4) : 0;
@@ -220,7 +235,7 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                     struct send_slot *slot = &slots[seq % WINDOW_SIZE];
                     if (slot->acknowledged || slot->fast_sent || slot->gap_reports < 3) continue;
                     if (slot->retries >= MAX_RETRIES) return -1;
-                    if (send_packet(fd, &slot->packet, server) != 0) return -1;
+                    if (send_data(fd, &slot->packet, server, options.drop_rate) != 0) return -1;
                     slot->fast_sent = 1;
                     slot->sent_at = monotonic_ms();
                     ++slot->retries; ++stats->data_sends; ++stats->data_retries;
@@ -263,27 +278,69 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
 int main(int argc, char *argv[])
 {
     uint16_t port;
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <server-ip> <port> <file>\n", argv[0]);
+    const char *host = NULL, *port_text = NULL, *filename = NULL;
+    const char *rto_mode = getenv("RUDP_RTO");
+    struct transport_options options = {0, option_enabled("RUDP_SACK"), option_enabled("RUDP_CC"), 0};
+    static const struct option cli[] = {
+        {"host", required_argument, NULL, 'H'}, {"port", required_argument, NULL, 'p'},
+        {"file", required_argument, NULL, 'f'}, {"sack", no_argument, NULL, 's'},
+        {"no-sack", no_argument, NULL, 'S'}, {"cc", no_argument, NULL, 'c'},
+        {"no-cc", no_argument, NULL, 'C'}, {"adaptive-rto", no_argument, NULL, 'a'},
+        {"fixed-rto", no_argument, NULL, 'F'}, {"drop-rate", required_argument, NULL, 'd'},
+        {"help", no_argument, NULL, 'h'}, {NULL, 0, NULL, 0}
+    };
+    int opt;
+    while ((opt = getopt_long(argc, argv, "h", cli, NULL)) != -1) {
+        switch (opt) {
+        case 'H': host = optarg; break;
+        case 'p': port_text = optarg; break;
+        case 'f': filename = optarg; break;
+        case 'a': rto_mode = "adaptive"; break;
+        case 'F': rto_mode = "fixed"; break;
+        case 's': case 'S': options.sack = opt == 's'; break;
+        case 'c': case 'C': options.congestion = opt == 'c'; break;
+        case 'd': {
+            char *end;
+            options.drop_rate = strtod(optarg, &end);
+            if (end == optarg || *end || !isfinite(options.drop_rate) ||
+                options.drop_rate < 0 || options.drop_rate > 1) {
+                fprintf(stderr, "--drop-rate requires a probability from 0 to 1\n");
+                return EXIT_FAILURE;
+            }
+            srand((unsigned)time(NULL) ^ (unsigned)getpid());
+            break;
+        }
+        case 'h':
+            puts("Usage: client HOST PORT FILE | client --host IPv4 --port PORT --file FILE\n"
+                 "Options: --sack | --no-sack, --adaptive-rto | --fixed-rto, --cc | --no-cc\n"
+                 "         --drop-rate P   simulate loss on each outgoing DATA send (0..1)");
+            return EXIT_SUCCESS;
+        default: return EXIT_FAILURE;
+        }
+    }
+    if (!host && !port_text && !filename && argc - optind == 3) {
+        host = argv[optind]; port_text = argv[optind+1]; filename = argv[optind+2];
+    } else if (!host || !port_text || !filename || argc != optind) {
+        fprintf(stderr, "Usage: client HOST PORT FILE (see --help)\n");
         return EXIT_FAILURE;
     }
-    const char *rto_mode = getenv("RUDP_RTO");
     if (rto_mode && strcmp(rto_mode, "fixed") && strcmp(rto_mode, "adaptive")) {
         fprintf(stderr, "RUDP_RTO must be fixed or adaptive.\n");
         return EXIT_FAILURE;
     }
-    if (parse_port(argv[2], &port) != 0) {
-        fprintf(stderr, "Invalid port: %s\n", argv[2]);
+    options.adaptive = rto_mode ? !strcmp(rto_mode, "adaptive") : option_enabled("RUDP_ADAPTIVE_RTO");
+    if (parse_port(port_text, &port) != 0) {
+        fprintf(stderr, "Invalid port: %s\n", port_text);
         return EXIT_FAILURE;
     }
     struct sockaddr_in server = {0};
     server.sin_family = AF_INET;
     server.sin_port = htons(port);
-    if (inet_pton(AF_INET, argv[1], &server.sin_addr) != 1) {
-        fprintf(stderr, "Invalid IPv4 address: %s\n", argv[1]);
+    if (inet_pton(AF_INET, host, &server.sin_addr) != 1) {
+        fprintf(stderr, "Invalid IPv4 address: %s\n", host);
         return EXIT_FAILURE;
     }
-    FILE *file = fopen(argv[3], "rb");
+    FILE *file = fopen(filename, "rb");
     if (!file) {
         perror("open input");
         return EXIT_FAILURE;
@@ -322,17 +379,18 @@ int main(int argc, char *argv[])
     }
     struct statistics stats = {0};
     uint64_t start = monotonic_ms();
-    struct packet control = {.type = option_enabled("RUDP_SACK") ? PACKET_START_SACK : PACKET_START, .transfer_id = id,
+    struct packet control = {.type = PACKET_START, .flags = options.sack ? SACK_CAPABLE : 0, .transfer_id = id,
                              .length = START_PAYLOAD_SIZE};
     put_u64(control.payload, size);
     put_u32(control.payload + 8, checksum);
-    if (exchange(fd, &server, &control, option_enabled("RUDP_SACK") ? PACKET_START_SACK_ACK : PACKET_START_ACK, &stats) != 0 ||
-        send_file(fd, file, &server, id, (uint32_t)count, size, &stats, progress) != 0)
+    if (exchange(fd, &server, &control, &stats) != 0 ||
+        send_file(fd, file, &server, id, (uint32_t)count, size, &stats, progress, options) != 0)
         goto cleanup;
     control.type = PACKET_FIN;
+    control.flags = 0;
     control.sequence = (uint32_t)count;
     control.length = 0;
-    if (exchange(fd, &server, &control, PACKET_FIN_ACK, &stats) != 0)
+    if (exchange(fd, &server, &control, &stats) != 0)
         goto cleanup;
     double seconds = (double)(monotonic_ms() - start) / 1000.0;
     printf("Transfer complete: bytes=%" PRIu64 " crc32=%08" PRIx32

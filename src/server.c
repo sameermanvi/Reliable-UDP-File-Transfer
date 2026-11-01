@@ -12,9 +12,9 @@ struct receive_slot {
 };
 
 static int reply(int fd, const struct sockaddr_in *peer, uint64_t id,
-                 uint8_t type, uint32_t sequence)
+                 uint8_t type, uint8_t flags, uint32_t sequence)
 {
-    struct packet packet = {.type = type, .transfer_id = id, .sequence = sequence};
+    struct packet packet = {.type = type, .flags = flags, .transfer_id = id, .sequence = sequence};
     return send_packet(fd, &packet, peer);
 }
 
@@ -31,8 +31,8 @@ static void report_error(int fd, const struct sockaddr_in *peer, uint64_t id,
 static int data_ack(int fd, const struct sockaddr_in *peer, uint64_t id,
                     uint32_t sequence, uint32_t base, struct receive_slot *slots, int sack)
 {
-    if (!sack) return reply(fd, peer, id, PACKET_ACK, sequence);
-    struct packet ack = {.type = PACKET_SACK, .transfer_id = id,
+    if (!sack) return reply(fd, peer, id, PACKET_ACK, 0, sequence);
+    struct packet ack = {.type = PACKET_ACK, .flags = SACK_BITMAP_PRESENT, .transfer_id = id,
                          .sequence = sequence, .length = 8};
     /* Repeating buffered coverage repairs ACK loss without resending DATA.
      * base was drained before this call, so its bit must remain clear. */
@@ -107,10 +107,10 @@ int main(int argc, char *argv[])
         if (!result)
             continue;
         if (!active) {
-            if ((packet.type != PACKET_START && packet.type != PACKET_START_SACK) || packet.sequence != 0 ||
+            if ((packet.type != PACKET_START || (packet.flags & CONTROL_REPLY)) || packet.sequence != 0 ||
                 packet.length != START_PAYLOAD_SIZE)
                 continue;
-            sack = packet.type == PACKET_START_SACK;
+            sack = (packet.flags & SACK_CAPABLE) != 0;
             expected_size = get_u64(packet.payload);
             packet_count = expected_size / PAYLOAD_SIZE + (expected_size % PAYLOAD_SIZE != 0);
             if (packet_count > UINT32_MAX) {
@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
             }
             active = 1;
             started = last_activity = monotonic_ms();
-            if (reply(fd, &client, id, sack ? PACKET_START_SACK_ACK : PACKET_START_ACK, 0) != 0) {
+            if (reply(fd, &client, id, PACKET_START, CONTROL_REPLY | (sack ? SACK_CAPABLE : 0), 0) != 0) {
                 perror("send START_ACK");
                 break;
             }
@@ -149,11 +149,11 @@ int main(int argc, char *argv[])
         }
         if (!same_peer(&peer, &client) || packet.transfer_id != id)
             continue;
-        if (packet.type == (sack ? PACKET_START_SACK : PACKET_START) && packet.sequence == 0 &&
+        if (packet.type == PACKET_START && packet.flags == (sack ? SACK_CAPABLE : 0) && packet.sequence == 0 &&
             packet.length == START_PAYLOAD_SIZE &&
             get_u64(packet.payload) == expected_size &&
             get_u32(packet.payload + 8) == expected_crc) {
-            if (reply(fd, &client, id, sack ? PACKET_START_SACK_ACK : PACKET_START_ACK, 0) != 0)
+            if (reply(fd, &client, id, PACKET_START, CONTROL_REPLY | (sack ? SACK_CAPABLE : 0), 0) != 0)
                 break;
             continue;
         }
@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
                 break;
             continue;
         }
-        if (packet.type != PACKET_FIN || packet.length != 0 || packet.sequence != packet_count)
+        if (packet.type != PACKET_FIN || packet.flags || packet.length != 0 || packet.sequence != packet_count)
             continue;
         if (!complete) {
             if (base != packet_count)
@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
             fflush(stdout);
         }
         /* Re-ACK duplicate FINs if FIN_ACK was lost; never rewrite the file. */
-        if (reply(fd, &client, id, PACKET_FIN_ACK, (uint32_t)packet_count) != 0)
+        if (reply(fd, &client, id, PACKET_FIN, CONTROL_REPLY, (uint32_t)packet_count) != 0)
             break;
     }
 cleanup:
