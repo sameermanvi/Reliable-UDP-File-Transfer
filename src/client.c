@@ -1,5 +1,6 @@
 #include "utils.h"
 #include <arpa/inet.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <getopt.h>
 #include <math.h>
@@ -70,6 +71,7 @@ static int exchange(int fd, const struct sockaddr_in *server,
 
 struct transport_options {
     int adaptive, sack, congestion, multipath;
+    unsigned int upper_weight, lower_weight;
     double drop_rate;
 };
 
@@ -77,16 +79,27 @@ struct transport_options {
  * exactly the same silence it would see after network DATA loss. */
 static int send_data(int fd, const struct packet *packet,
                      const struct sockaddr_in *peer, double drop_rate,
-                     int multipath)
+                     int multipath, unsigned int upper_weight,
+                     unsigned int lower_weight)
 {
     if (drop_rate > 0 && rand() / (RAND_MAX + 1.0) < drop_rate) return 0;
 
     if (!multipath)
         return send_packet(fd, packet, peer);
 
-    /* DSCP 8 selects upper; DSCP 16 selects lower.
-     * Sequence parity keeps retransmissions on their original branch. */
-    int tos = (packet->sequence % 2 == 0 ? 8 : 16) << 2;
+    /* Weighted sequence mapping is deterministic, so retransmissions of
+     * a sequence number stay on the same path. */
+    if (upper_weight == 0 || lower_weight == 0 ||
+        upper_weight > 1000000U || lower_weight > 1000000U ||
+        upper_weight > 1000000U - lower_weight) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    unsigned int total_weight = upper_weight + lower_weight;
+    unsigned int position = packet->sequence % total_weight;
+    int dscp = position < upper_weight ? 8 : 16;
+    int tos = dscp << 2;
     if (setsockopt(fd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) != 0)
         return -1;
 
@@ -127,7 +140,9 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                 fprintf(stderr, "Input file changed or could not be read.\n");
                 return -1;
             }
-            if (send_data(fd, &slot->packet, server, options.drop_rate, options.multipath) != 0) {
+            if (send_data(fd, &slot->packet, server, options.drop_rate,
+                           options.multipath, options.upper_weight,
+                           options.lower_weight) != 0) {
                 perror("send DATA");
                 return -1;
             }
@@ -151,7 +166,9 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                     fprintf(stderr, "Retry limit reached for DATA %" PRIu32 ".\n", sequence);
                     return -1;
                 }
-                if (send_data(fd, &slot->packet, server, options.drop_rate, options.multipath) != 0) {
+                if (send_data(fd, &slot->packet, server, options.drop_rate,
+                           options.multipath, options.upper_weight,
+                           options.lower_weight) != 0) {
                     perror("retransmit DATA");
                     return -1;
                 }
@@ -253,7 +270,9 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                     struct send_slot *slot = &slots[seq % WINDOW_SIZE];
                     if (slot->acknowledged || slot->fast_sent || slot->gap_reports < 3) continue;
                     if (slot->retries >= MAX_RETRIES) return -1;
-                    if (send_data(fd, &slot->packet, server, options.drop_rate, options.multipath) != 0) return -1;
+                    if (send_data(fd, &slot->packet, server, options.drop_rate,
+                           options.multipath, options.upper_weight,
+                           options.lower_weight) != 0) return -1;
                     slot->fast_sent = 1;
                     slot->sent_at = monotonic_ms();
                     ++slot->retries; ++stats->data_sends; ++stats->data_retries;
@@ -298,13 +317,16 @@ int main(int argc, char *argv[])
     uint16_t port;
     const char *host = NULL, *port_text = NULL, *filename = NULL;
     const char *rto_mode = getenv("RUDP_RTO");
-    struct transport_options options = {0, option_enabled("RUDP_SACK"), option_enabled("RUDP_CC"), option_enabled("RUDP_MULTIPATH"), 0};
+    struct transport_options options = {0, option_enabled("RUDP_SACK"), option_enabled("RUDP_CC"), option_enabled("RUDP_MULTIPATH"), 1, 1, 0};
     static const struct option cli[] = {
         {"host", required_argument, NULL, 'H'}, {"port", required_argument, NULL, 'p'},
         {"file", required_argument, NULL, 'f'}, {"sack", no_argument, NULL, 's'},
         {"no-sack", no_argument, NULL, 'S'}, {"cc", no_argument, NULL, 'c'},
         {"no-cc", no_argument, NULL, 'C'}, {"multipath", no_argument, NULL, 'm'}, {"adaptive-rto", no_argument, NULL, 'a'},
-        {"fixed-rto", no_argument, NULL, 'F'}, {"drop-rate", required_argument, NULL, 'd'},
+        {"fixed-rto", no_argument, NULL, 'F'},
+        {"upper-weight", required_argument, NULL, 'u'},
+        {"lower-weight", required_argument, NULL, 'l'},
+        {"drop-rate", required_argument, NULL, 'd'},
         {"help", no_argument, NULL, 'h'}, {NULL, 0, NULL, 0}
     };
     int opt;
@@ -318,6 +340,21 @@ int main(int argc, char *argv[])
         case 's': case 'S': options.sack = opt == 's'; break;
         case 'c': case 'C': options.congestion = opt == 'c'; break;
         case 'm': options.multipath = 1; break;
+        case 'u': case 'l': {
+            char *end;
+            errno = 0;
+            unsigned long weight = strtoul(optarg, &end, 10);
+            if (errno || end == optarg || *end ||
+                weight < 1 || weight > 1000000UL) {
+                fprintf(stderr, "Path weights must be integers from 1 to 1000000\n");
+                return EXIT_FAILURE;
+            }
+            if (opt == 'u')
+                options.upper_weight = (unsigned int)weight;
+            else
+                options.lower_weight = (unsigned int)weight;
+            break;
+        }
         case 'd': {
             char *end;
             options.drop_rate = strtod(optarg, &end);
@@ -333,6 +370,8 @@ int main(int argc, char *argv[])
             puts("Usage: client HOST PORT FILE | client --host IPv4 --port PORT --file FILE\n"
                  "Options: --sack | --no-sack, --adaptive-rto | --fixed-rto, --cc | --no-cc\n"
                  "         --multipath    distribute DATA across upper/lower SDN paths\n"
+                 "         --upper-weight N  upper path weight (default 1)\n"
+                 "         --lower-weight N  lower path weight (default 1)\n"
                  "         --drop-rate P   simulate loss on each outgoing DATA send (0..1)");
             return EXIT_SUCCESS;
         default: return EXIT_FAILURE;
@@ -342,6 +381,12 @@ int main(int argc, char *argv[])
         host = argv[optind]; port_text = argv[optind+1]; filename = argv[optind+2];
     } else if (!host || !port_text || !filename || argc != optind) {
         fprintf(stderr, "Usage: client HOST PORT FILE (see --help)\n");
+        return EXIT_FAILURE;
+    }
+    if (options.upper_weight < 1 || options.lower_weight < 1 ||
+        options.lower_weight > 1000000U ||
+        options.upper_weight > 1000000U - options.lower_weight) {
+        fprintf(stderr, "Combined path weights must not exceed 1000000\n");
         return EXIT_FAILURE;
     }
     if (rto_mode && strcmp(rto_mode, "fixed") && strcmp(rto_mode, "adaptive")) {
