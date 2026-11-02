@@ -1,0 +1,38 @@
+import unittest
+
+from controller.multipath import MultipathScheduler
+
+
+class MultipathTests(unittest.TestCase):
+    def test_alternates_between_healthy_paths(self):
+        scheduler = MultipathScheduler()
+        selected = [scheduler.select_path() for _ in range(6)]
+        self.assertEqual(
+            selected,
+            ["upper", "lower", "upper", "lower", "upper", "lower"],
+        )
+
+    def test_unhealthy_path_is_not_selected(self):
+        scheduler = MultipathScheduler()
+        scheduler.update_path("upper", healthy=False)
+        self.assertEqual(
+            [scheduler.select_path() for _ in range(4)],
+            ["lower", "lower", "lower", "lower"],
+        )
+
+    def test_weighted_schedule(self):
+        scheduler = MultipathScheduler()
+        scheduler.update_path("upper", weight=2)
+        selected = [scheduler.select_path() for _ in range(6)]
+        self.assertEqual(selected.count("upper"), 4)
+        self.assertEqual(selected.count("lower"), 2)
+
+    def test_all_paths_unhealthy(self):
+        scheduler = MultipathScheduler()
+        scheduler.update_path("upper", healthy=False)
+        scheduler.update_path("lower", healthy=False)
+        self.assertIsNone(scheduler.select_path())
+
+
+if __name__ == "__main__":
+    unittest.main()

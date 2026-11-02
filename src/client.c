@@ -1,5 +1,6 @@
 #include "utils.h"
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <getopt.h>
 #include <math.h>
 #include <time.h>
@@ -68,17 +69,34 @@ static int exchange(int fd, const struct sockaddr_in *server,
 }
 
 struct transport_options {
-    int adaptive, sack, congestion;
+    int adaptive, sack, congestion, multipath;
     double drop_rate;
 };
 
 /* Simulate loss after the send decision so normal ACK/retry logic observes
  * exactly the same silence it would see after network DATA loss. */
 static int send_data(int fd, const struct packet *packet,
-                     const struct sockaddr_in *peer, double drop_rate)
+                     const struct sockaddr_in *peer, double drop_rate,
+                     int multipath)
 {
     if (drop_rate > 0 && rand() / (RAND_MAX + 1.0) < drop_rate) return 0;
-    return send_packet(fd, packet, peer);
+
+    if (!multipath)
+        return send_packet(fd, packet, peer);
+
+    /* DSCP 8 selects upper; DSCP 16 selects lower.
+     * Sequence parity keeps retransmissions on their original branch. */
+    int tos = (packet->sequence % 2 == 0 ? 8 : 16) << 2;
+    if (setsockopt(fd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) != 0)
+        return -1;
+
+    int result = send_packet(fd, packet, peer);
+    int reset_tos = 0;
+    if (setsockopt(fd, IPPROTO_IP, IP_TOS,
+                   &reset_tos, sizeof(reset_tos)) != 0 && result == 0)
+        return -1;
+
+    return result;
 }
 
 static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
@@ -109,7 +127,7 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                 fprintf(stderr, "Input file changed or could not be read.\n");
                 return -1;
             }
-            if (send_data(fd, &slot->packet, server, options.drop_rate) != 0) {
+            if (send_data(fd, &slot->packet, server, options.drop_rate, options.multipath) != 0) {
                 perror("send DATA");
                 return -1;
             }
@@ -133,7 +151,7 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                     fprintf(stderr, "Retry limit reached for DATA %" PRIu32 ".\n", sequence);
                     return -1;
                 }
-                if (send_data(fd, &slot->packet, server, options.drop_rate) != 0) {
+                if (send_data(fd, &slot->packet, server, options.drop_rate, options.multipath) != 0) {
                     perror("retransmit DATA");
                     return -1;
                 }
@@ -235,7 +253,7 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
                     struct send_slot *slot = &slots[seq % WINDOW_SIZE];
                     if (slot->acknowledged || slot->fast_sent || slot->gap_reports < 3) continue;
                     if (slot->retries >= MAX_RETRIES) return -1;
-                    if (send_data(fd, &slot->packet, server, options.drop_rate) != 0) return -1;
+                    if (send_data(fd, &slot->packet, server, options.drop_rate, options.multipath) != 0) return -1;
                     slot->fast_sent = 1;
                     slot->sent_at = monotonic_ms();
                     ++slot->retries; ++stats->data_sends; ++stats->data_retries;
@@ -280,12 +298,12 @@ int main(int argc, char *argv[])
     uint16_t port;
     const char *host = NULL, *port_text = NULL, *filename = NULL;
     const char *rto_mode = getenv("RUDP_RTO");
-    struct transport_options options = {0, option_enabled("RUDP_SACK"), option_enabled("RUDP_CC"), 0};
+    struct transport_options options = {0, option_enabled("RUDP_SACK"), option_enabled("RUDP_CC"), option_enabled("RUDP_MULTIPATH"), 0};
     static const struct option cli[] = {
         {"host", required_argument, NULL, 'H'}, {"port", required_argument, NULL, 'p'},
         {"file", required_argument, NULL, 'f'}, {"sack", no_argument, NULL, 's'},
         {"no-sack", no_argument, NULL, 'S'}, {"cc", no_argument, NULL, 'c'},
-        {"no-cc", no_argument, NULL, 'C'}, {"adaptive-rto", no_argument, NULL, 'a'},
+        {"no-cc", no_argument, NULL, 'C'}, {"multipath", no_argument, NULL, 'm'}, {"adaptive-rto", no_argument, NULL, 'a'},
         {"fixed-rto", no_argument, NULL, 'F'}, {"drop-rate", required_argument, NULL, 'd'},
         {"help", no_argument, NULL, 'h'}, {NULL, 0, NULL, 0}
     };
@@ -299,6 +317,7 @@ int main(int argc, char *argv[])
         case 'F': rto_mode = "fixed"; break;
         case 's': case 'S': options.sack = opt == 's'; break;
         case 'c': case 'C': options.congestion = opt == 'c'; break;
+        case 'm': options.multipath = 1; break;
         case 'd': {
             char *end;
             options.drop_rate = strtod(optarg, &end);
@@ -313,6 +332,7 @@ int main(int argc, char *argv[])
         case 'h':
             puts("Usage: client HOST PORT FILE | client --host IPv4 --port PORT --file FILE\n"
                  "Options: --sack | --no-sack, --adaptive-rto | --fixed-rto, --cc | --no-cc\n"
+                 "         --multipath    distribute DATA across upper/lower SDN paths\n"
                  "         --drop-rate P   simulate loss on each outgoing DATA send (0..1)");
             return EXIT_SUCCESS;
         default: return EXIT_FAILURE;
