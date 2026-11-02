@@ -1,3 +1,4 @@
+
 """Proactive OpenFlow 1.3 routes with port-status-driven path recovery.
 
 Run with osken-manager --ofp-tcp-listen-port 6653 controller/failover.py.
@@ -32,6 +33,7 @@ except ImportError:
 
 # The manager may load this file by path without adding the repository root.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from controller.routing import PathPolicy, SWITCHES, forwarding_rules
 from controller.probes import ProbeTracker, ENDPOINTS, ETHERTYPE
 from controller.probe_schedule import AdaptiveProbeSchedule
@@ -46,10 +48,12 @@ class FailoverController(AppBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         self.policy = PathPolicy(
             os.environ.get("RUDP_MODE", "failover"),
             os.environ.get("RUDP_INITIAL_PATH", "upper"),
         )
+
         self.datapaths = {}
         self.discovered = set()
         self.started = False
@@ -60,11 +64,14 @@ class FailoverController(AppBase):
         self.cause = "startup"
 
         event_path = os.environ.get("RUDP_EVENT_LOG")
-        self.event_file = open(event_path, "a", buffering=1) if event_path else None
+        self.event_file = (
+            open(event_path, "a", buffering=1) if event_path else None
+        )
 
         self._event("controller_started", mode=self.policy.mode)
 
         self.probes = ProbeTracker()
+
         self.probe_schedules = {
             key: AdaptiveProbeSchedule() for key in ENDPOINTS
         }
@@ -94,7 +101,11 @@ class FailoverController(AppBase):
             for observation in self.probes.expire(now):
                 self._event("probe_result", **observation)
 
-                key = (observation["path"], observation["direction"])
+                key = (
+                    observation["path"],
+                    observation["direction"],
+                )
+
                 self.probe_schedules[key].record_result(False, now)
                 self.next_probe_ns[key] = now
 
@@ -109,18 +120,25 @@ class FailoverController(AppBase):
                     hysteresis=0.02,
                     hold_down_seconds=2,
                 )
+
                 self._reconcile("health_update")
 
                 # Send only the probes whose individual deadlines have arrived.
-                for (path, direction), (source, out_port, _, _) in ENDPOINTS.items():
+                for (
+                    (path, direction),
+                    (source, out_port, _, _),
+                ) in ENDPOINTS.items():
+
                     if not self.policy.available(path):
                         continue
 
                     dp = self.datapaths.get(source)
+
                     if dp is None:
                         continue
 
                     key = (path, direction)
+
                     if now < self.next_probe_ns[key]:
                         continue
 
@@ -130,7 +148,9 @@ class FailoverController(AppBase):
                         datapath=dp,
                         buffer_id=dp.ofproto.OFP_NO_BUFFER,
                         in_port=dp.ofproto.OFPP_CONTROLLER,
-                        actions=[dp.ofproto_parser.OFPActionOutput(out_port)],
+                        actions=[
+                            dp.ofproto_parser.OFPActionOutput(out_port)
+                        ],
                         data=frame,
                     ))
 
@@ -138,6 +158,7 @@ class FailoverController(AppBase):
                         self.probe_schedules[key].interval_seconds(now)
                         * 1_000_000_000
                     )
+
                     self.next_probe_ns[key] = now + interval_ns
 
             # Wake at the next probe deadline or pending-probe timeout.
@@ -145,18 +166,25 @@ class FailoverController(AppBase):
             deadlines = []
 
             if self.started:
-                for (path, direction), (source, _, _, _) in ENDPOINTS.items():
+                for (
+                    (path, direction),
+                    (source, _, _, _),
+                ) in ENDPOINTS.items():
+
                     if not self.policy.available(path):
                         continue
+
                     if source not in self.datapaths:
                         continue
 
                     deadline = self.next_probe_ns[(path, direction)]
+
                     if deadline > now:
                         deadlines.append(deadline)
 
                 for _, _, sent_ns in self.probes.pending.values():
                     timeout_deadline = sent_ns + self.probes.timeout_ns
+
                     if timeout_deadline > now:
                         deadlines.append(timeout_deadline)
 
@@ -183,7 +211,11 @@ class FailoverController(AppBase):
         if observation:
             self._event("probe_result", **observation)
 
-            key = (observation["path"], observation["direction"])
+            key = (
+                observation["path"],
+                observation["direction"],
+            )
+
             schedule = self.probe_schedules[key]
             schedule.record_result(True, now)
 
@@ -192,7 +224,9 @@ class FailoverController(AppBase):
             interval_ns = int(
                 schedule.interval_seconds(now) * 1_000_000_000
             )
+
             proposed_deadline = now + interval_ns
+
             self.next_probe_ns[key] = min(
                 self.next_probe_ns[key],
                 proposed_deadline,
@@ -204,9 +238,12 @@ class FailoverController(AppBase):
         record = dict(
             event=event,
             monotonic_ns=time.clock_gettime_ns(time.CLOCK_MONOTONIC),
-            wall_time=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            wall_time=datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat(),
             **fields,
         )
+
         line = json.dumps(record, sort_keys=True)
         self.logger.info(line)
 
@@ -222,6 +259,7 @@ class FailoverController(AppBase):
             return
 
         self.probes.invalidate_switch(dp.id)
+
         self.datapaths[dp.id] = dp
         self.policy.connected.add(dp.id)
         self.discovered.discard(dp.id)
@@ -254,8 +292,10 @@ class FailoverController(AppBase):
                 3 - in_port if dp.id in (2, 3)
                 else ofp.OFPP_CONTROLLER
             )
+
             action = parser.OFPActionOutput(
-                out_port, ofp.OFPCML_NO_BUFFER
+                out_port,
+                ofp.OFPCML_NO_BUFFER,
             )
 
             dp.send_msg(parser.OFPFlowMod(
@@ -280,6 +320,7 @@ class FailoverController(AppBase):
     @staticmethod
     def _port_up(dp, port):
         ofp = dp.ofproto
+
         return not (
             port.state & ofp.OFPPS_LINK_DOWN
             or port.config & ofp.OFPPC_PORT_DOWN
@@ -293,12 +334,15 @@ class FailoverController(AppBase):
             return
 
         for port in msg.body:
-            self.policy.ports[(dp.id, port.port_no)] = self._port_up(dp, port)
+            self.policy.ports[(dp.id, port.port_no)] = (
+                self._port_up(dp, port)
+            )
 
         if msg.flags & dp.ofproto.OFPMPF_REPLY_MORE:
             return
 
         self.discovered.add(dp.id)
+
         self._reconcile(
             "startup" if not self.started else "switch_up",
             force=True,
@@ -312,10 +356,12 @@ class FailoverController(AppBase):
             return
 
         key = (dp.id, msg.desc.port_no)
+
         up = (
             msg.reason != dp.ofproto.OFPPR_DELETE
             and self._port_up(dp, msg.desc)
         )
+
         previous = self.policy.ports.get(key)
         self.policy.ports[key] = up
 
@@ -325,6 +371,7 @@ class FailoverController(AppBase):
         cause = "link_up" if up else "link_down"
 
         self.probes.invalidate_port(dp.id, msg.desc.port_no)
+
         self._refresh_health(
             time.clock_gettime_ns(time.CLOCK_MONOTONIC)
         )
@@ -340,6 +387,7 @@ class FailoverController(AppBase):
             return
 
         self.probes.invalidate_switch(dp.id)
+
         del self.datapaths[dp.id]
         self.policy.connected.discard(dp.id)
         self.discovered.discard(dp.id)
@@ -351,6 +399,7 @@ class FailoverController(AppBase):
         if not self.started:
             if self.discovered != SWITCHES:
                 return
+
             self.started = True
 
         path = self.policy.choose(self.path)
@@ -361,7 +410,10 @@ class FailoverController(AppBase):
         now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
 
         if cause == "health_update" and path != self.path:
-            if self.pending or now - self.last_route_change_ns < 2_000_000_000:
+            if (
+                self.pending
+                or now - self.last_route_change_ns < 2_000_000_000
+            ):
                 self._event(
                     "route_decision",
                     selected=self.path,
@@ -372,6 +424,7 @@ class FailoverController(AppBase):
                 return
 
         self.last_route_change_ns = now
+
         self._event(
             "route_decision",
             previous=self.path,
@@ -405,6 +458,7 @@ class FailoverController(AppBase):
                     [] if rule.out_port is None
                     else [parser.OFPActionOutput(rule.out_port)]
                 )
+
                 instructions = [
                     parser.OFPInstructionActions(
                         ofp.OFPIT_APPLY_ACTIONS,
@@ -437,12 +491,30 @@ class FailoverController(AppBase):
 
             # DATA uses DSCP 8 for upper and DSCP 16 for lower.
             multipath_paths = {
-                "upper": (8, ((1, 1, 2), (2, 1, 2), (4, 1, 3))),
-                "lower": (16, ((1, 1, 3), (3, 1, 2), (4, 2, 3))),
+                "upper": (
+                    8,
+                    ((1, 1, 2), (2, 1, 2), (4, 1, 3)),
+                ),
+                "lower": (
+                    16,
+                    ((1, 1, 3), (3, 1, 2), (4, 2, 3)),
+                ),
             }
 
             for path_name, (dscp, entries) in multipath_paths.items():
-                if not self.policy.available(path_name):
+                details = self.policy.availability_details(path_name)
+
+                self._event(
+                    "multipath_path_check",
+                    dpid=dpid,
+                    path=path_name,
+                    dscp=dscp,
+                    available=details["available"],
+                    missing_switches=details["missing_switches"],
+                    unavailable_ports=details["unavailable_ports"],
+                )
+
+                if not details["available"]:
                     continue
 
                 for switch_id, ingress, output in entries:
@@ -470,6 +542,7 @@ class FailoverController(AppBase):
 
             barrier = parser.OFPBarrierRequest(dp)
             dp.set_xid(barrier)
+
             self.pending[(dpid, barrier.xid)] = self.generation
             dp.send_msg(barrier)
 

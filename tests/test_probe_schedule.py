@@ -1,87 +1,53 @@
-"""Tests for adaptive probe scheduling."""
-
 import unittest
 
 from controller.probe_schedule import AdaptiveProbeSchedule
 
 
 class AdaptiveProbeScheduleTests(unittest.TestCase):
-    def setUp(self):
-        self.schedule = AdaptiveProbeSchedule()
-        self.now = 10_000_000_000
+    def test_starts_at_250ms(self):
+        scheduler = AdaptiveProbeSchedule()
+        self.assertEqual(scheduler.interval, 0.25)
 
-    def test_starts_at_stable_interval(self):
-        self.assertEqual(
-            self.schedule.interval_ns(self.now),
-            AdaptiveProbeSchedule.STABLE_NS,
-        )
+    def test_degraded_schedule_uses_fast_interval(self):
+        scheduler = AdaptiveProbeSchedule()
+        scheduler.set_degraded(True)
+        self.assertEqual(scheduler.interval_seconds(0), 0.25)
 
-    def test_failure_increases_probe_frequency(self):
-        self.schedule.record_result(False, self.now)
+    def test_failed_probe_halves_interval(self):
+        scheduler = AdaptiveProbeSchedule()
+        scheduler.record_result(False, now_ns=1_000_000_000)
+        self.assertEqual(scheduler.interval, 0.125)
 
-        self.assertEqual(
-            self.schedule.interval_ns(self.now),
-            AdaptiveProbeSchedule.FAILURE_NS,
-        )
+    def test_healthy_schedule_can_increase_interval(self):
+        scheduler = AdaptiveProbeSchedule()
+        scheduler.set_degraded(False)
+        scheduler.record_result(True, now_ns=1_000_000_000)
+        self.assertAlmostEqual(scheduler.interval, 0.3125)
 
-    def test_three_successes_enter_recovery_period(self):
-        self.schedule.record_result(False, self.now)
+    def test_interval_never_exceeds_maximum(self):
+        scheduler = AdaptiveProbeSchedule()
+        scheduler.set_degraded(False)
+        for i in range(30):
+            scheduler.record_result(True, now_ns=i * 1_000_000_000)
+        self.assertLessEqual(scheduler.interval, scheduler.max_interval)
 
-        for i in range(3):
-            self.schedule.record_result(True, self.now + (i + 1) * 100_000_000)
+    def test_interval_never_falls_below_minimum(self):
+        scheduler = AdaptiveProbeSchedule()
+        for i in range(30):
+            scheduler.record_result(False, now_ns=i * 1_000_000_000)
+        self.assertGreaterEqual(scheduler.interval, scheduler.min_interval)
 
-        recovery_time = self.now + 300_000_000
+    def test_degraded_interval_is_capped_at_250ms(self):
+        scheduler = AdaptiveProbeSchedule()
+        scheduler.set_degraded(True)
+        scheduler.interval = 1.0
+        self.assertEqual(scheduler.interval_seconds(0), 0.25)
 
-        self.assertEqual(
-            self.schedule.interval_ns(recovery_time),
-            AdaptiveProbeSchedule.RECOVERY_NS,
-        )
-
-        self.assertEqual(
-            self.schedule.interval_ns(
-                recovery_time + AdaptiveProbeSchedule.RECOVERY_HOLD_NS
-            ),
-            AdaptiveProbeSchedule.STABLE_NS,
-        )
-
-    def test_another_failure_resets_recovery(self):
-        self.schedule.record_result(False, self.now)
-
-        for i in range(3):
-            self.schedule.record_result(True, self.now + (i + 1) * 100_000_000)
-
-        self.schedule.record_result(False, self.now + 400_000_000)
-
-        self.assertEqual(
-            self.schedule.interval_ns(self.now + 400_000_000),
-            AdaptiveProbeSchedule.FAILURE_NS,
-        )
-
-    def test_degraded_health_uses_uncertain_interval(self):
-        self.schedule.set_degraded(True, self.now)
-
-        self.assertEqual(
-            self.schedule.interval_ns(self.now),
-            AdaptiveProbeSchedule.UNCERTAIN_NS,
-        )
-
-    def test_recovered_health_has_temporary_faster_interval(self):
-        self.schedule.set_degraded(True, self.now)
-        self.schedule.set_degraded(False, self.now + 100_000_000)
-
-        self.assertEqual(
-            self.schedule.interval_ns(self.now + 100_000_000),
-            AdaptiveProbeSchedule.RECOVERY_NS,
-        )
-
-        self.assertEqual(
-            self.schedule.interval_ns(
-                self.now + 100_000_000
-                + AdaptiveProbeSchedule.RECOVERY_HOLD_NS
-            ),
-            AdaptiveProbeSchedule.STABLE_NS,
-        )
+    def test_initial_interval_is_within_bounds(self):
+        scheduler = AdaptiveProbeSchedule()
+        self.assertGreaterEqual(scheduler.interval, scheduler.min_interval)
+        self.assertLessEqual(scheduler.interval, scheduler.max_interval)
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()
