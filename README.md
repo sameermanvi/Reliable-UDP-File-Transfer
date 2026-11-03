@@ -37,7 +37,7 @@ Run the console from the repository root. It builds the C binaries and opens the
 python3 scripts/run.py viz
 ```
 
-Choose one of the five numbered scenarios. The default 32-packet Viva Smart playback supports play, pause and single-event stepping. Advanced manual controls and raw logs are collapsed below the three main panels. The console captures actual
+Choose one of the five numbered scenarios. The default 32-packet guided playback supports play, pause and single-event stepping. Advanced manual controls and raw logs are collapsed below the three main panels. The console captures actual
 24-byte headers through a UDP relay, streams sender/receiver JSONL records, shows
 the sender ring snapshots, and reports independent SHA-256 verification. The relay
 adds 15 ms in each direction to make the transitions visible. **Drop next DATA**

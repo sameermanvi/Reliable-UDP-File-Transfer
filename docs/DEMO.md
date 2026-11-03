@@ -43,7 +43,7 @@ has acknowledged the contiguous prefix. Each card keeps its original ID.
 Scenario 5 replays a measured Mininet failover. For longer files the board
 shows the first 32 packets while the counters cover the entire transfer.
 
-Use Viva Smart for a guided walkthrough, Step-by-step to stop at losses and
+Use Guided playback for a guided walkthrough, Step-by-step to stop at losses and
 retries, or Instant to reach the result. Click a story entry to inspect its
 packet states. Playback speed is independent of the measured transfer duration.
 
