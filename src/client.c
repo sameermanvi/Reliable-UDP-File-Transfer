@@ -1,3 +1,7 @@
+#ifdef __APPLE__
+/* IP_TOS is a Darwin extension hidden by the POSIX feature profile. */
+#define _DARWIN_C_SOURCE
+#endif
 #include "utils.h"
 #include <arpa/inet.h>
 #include <errno.h>

@@ -1,71 +1,52 @@
+"""Exercise the policy used by the real DSCP rule installer."""
+from pathlib import Path
+import sys
 import unittest
-
-from controller.multipath import MultipathScheduler
+import os
+import shlex
+import subprocess
+import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from controller.multipath import eligible_paths
+from test_controller import connected_policy
 
 
 class MultipathTests(unittest.TestCase):
+    def setUp(self):
+        self.policy = connected_policy()
+        self.policy.health = {"upper": .01, "lower": .01}
 
-    def test_alternates_between_healthy_paths(self):
-        scheduler = MultipathScheduler()
+    def test_real_sender_marks_weights_retries_and_resets(self):
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as folder:
+            binary = Path(folder)/'sender-test'
+            subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
+                '-std=c11', '-D_POSIX_C_SOURCE=200809L', '-Wall', '-Wextra',
+                '-Wpedantic', '-Werror', str(root/'tests/multipath_sender.c'),
+                str(root/'src/utils.c'), '-o', str(binary)], check=True)
+            subprocess.run([str(binary)], check=True, timeout=5)
 
-        selected = [scheduler.select_path() for _ in range(6)]
+    def test_healthy_paths_share_data(self):
+        self.assertEqual(eligible_paths(self.policy, "upper"), {"upper", "lower"})
 
-        self.assertEqual(
-            selected,
-            ["upper", "lower", "upper", "lower", "upper", "lower"],
-        )
+    def test_degraded_path_is_excluded(self):
+        self.policy.health["upper"] = .5
+        self.assertEqual(eligible_paths(self.policy, "lower"), {"lower"})
 
-    def test_unhealthy_path_is_not_selected(self):
-        scheduler = MultipathScheduler()
-        scheduler.update_path("upper", healthy=False)
+    def test_unmeasured_alternate_is_excluded(self):
+        del self.policy.health["lower"]
+        self.assertEqual(eligible_paths(self.policy, "upper"), {"upper"})
 
-        selected = [scheduler.select_path() for _ in range(4)]
+    def test_failed_path_is_excluded(self):
+        self.policy.ports[(1, 2)] = False
+        self.assertEqual(eligible_paths(self.policy, "lower"), {"lower"})
 
-        self.assertEqual(
-            selected,
-            ["lower", "lower", "lower", "lower"],
-        )
+    def test_static_mode_has_no_overrides(self):
+        self.policy.mode = "static"
+        self.assertFalse(eligible_paths(self.policy, "upper"))
 
-    def test_weighted_schedule(self):
-        scheduler = MultipathScheduler()
-        scheduler.update_path("upper", weight=2)
-
-        selected = [scheduler.select_path() for _ in range(6)]
-
-        self.assertEqual(selected.count("upper"), 4)
-        self.assertEqual(selected.count("lower"), 2)
-
-    def test_all_paths_unhealthy(self):
-        scheduler = MultipathScheduler()
-        scheduler.update_path("upper", healthy=False)
-        scheduler.update_path("lower", healthy=False)
-
-        self.assertIsNone(scheduler.select_path())
-
-    def test_weighted_schedule_respects_configured_ratio(self):
-        scheduler = MultipathScheduler()
-        scheduler.update_path("upper", weight=3)
-        scheduler.update_path("lower", weight=1)
-
-        selected = [scheduler.select_path() for _ in range(8)]
-
-        self.assertEqual(selected.count("upper"), 6)
-        self.assertEqual(selected.count("lower"), 2)
-
-    def test_recovered_path_returns_to_schedule(self):
-        scheduler = MultipathScheduler()
-        scheduler.update_path("upper", healthy=False)
-
-        self.assertEqual(scheduler.select_path(), "lower")
-
-        scheduler.update_path("upper", healthy=True)
-
-        selected = [scheduler.select_path() for _ in range(4)]
-
-        self.assertCountEqual(
-            selected,
-            ["upper", "upper", "lower", "lower"],
-        )
+    def test_no_selected_route_has_no_overrides(self):
+        self.assertFalse(eligible_paths(self.policy, None))
 
 
 if __name__ == "__main__":

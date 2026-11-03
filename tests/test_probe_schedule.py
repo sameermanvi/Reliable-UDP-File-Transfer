@@ -1,4 +1,7 @@
+from pathlib import Path
+import sys
 import unittest
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from controller.probe_schedule import AdaptiveProbeSchedule
 
@@ -42,6 +45,12 @@ class AdaptiveProbeScheduleTests(unittest.TestCase):
         scheduler.set_degraded(True)
         scheduler.interval = 1.0
         self.assertEqual(scheduler.interval_seconds(0), 0.25)
+
+    def test_maximum_spacing_leaves_time_for_response(self):
+        from controller.probes import ProbeTracker
+        schedule, tracker = AdaptiveProbeSchedule(), ProbeTracker()
+        self.assertLessEqual(schedule.max_interval * 1e9 + tracker.timeout_ns,
+                             tracker.freshness_ns)
 
     def test_initial_interval_is_within_bounds(self):
         scheduler = AdaptiveProbeSchedule()

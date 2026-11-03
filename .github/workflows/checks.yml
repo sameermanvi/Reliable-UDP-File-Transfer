@@ -20,9 +20,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build and test
         run: |
-          make -C src CFLAGS='-std=c11 -O2 -Wall -Wextra -Wpedantic -Werror' test
-          python3 tests/test_controller.py
-          python3 tests/test_metrics.py
+          make -C src CFLAGS='-std=c11 -O2 -Wall -Wextra -Wpedantic -Werror'
+          make test
       - name: Sanitizer checks
         if: runner.os == 'Linux'
         run: |
@@ -30,22 +29,35 @@ jobs:
           make -C src CC=clang CFLAGS='-std=c11 -O1 -g -Wall -Wextra -Wpedantic -Werror -fsanitize=address,undefined -fno-omit-frame-pointer' LDFLAGS='-fsanitize=address,undefined' test
 
   network:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [matrix, concurrent]
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Install network lab
         run: sudo bash scripts/setup_env.sh
       - name: Exercise normal, loss and link failure
+        if: matrix.suite == 'matrix'
         run: |
           sudo .venv/bin/python scripts/run.py experiment --repeats 1 --output results/ci
-          sudo .venv/bin/python scripts/run.py experiment --scenarios link-failure --modes failover --flows 2 --repeats 1 --output results/ci-concurrent
-          .venv/bin/python scripts/run.py plot results/ci/metrics.csv --output results/ci/plots
+          sudo .venv/bin/python scripts/run.py plot results/ci/metrics.csv --output results/ci/plots
+      - name: Exercise concurrent failover
+        if: matrix.suite == 'concurrent'
+        run: sudo .venv/bin/python scripts/run.py experiment --scenarios link-failure --modes failover --flows 2 --repeats 1 --output results/ci-concurrent
       - name: Save logs and measurements
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: network-results
+          name: network-results-${{ matrix.suite }}
+          # Retain measurements and diagnostics, excluding temporary payloads.
           path: |
-            results/ci/
-            results/ci-concurrent/
+            results/ci*/**/*.log
+            results/ci*/**/*.json
+            results/ci*/**/*.jsonl
+            results/ci*/**/*.csv
+            results/ci*/**/*.svg
+            results/ci*/**/*.md
+            results/ci*/**/*.txt

@@ -6,7 +6,8 @@ class AdaptiveProbeSchedule:
     def __init__(
         self,
         min_interval=0.1,
-        max_interval=2.0,
+        # Leave the 500 ms response deadline inside the tracker's 2 s freshness.
+        max_interval=1.5,
         initial_interval=0.25,
         healthy_threshold=0.05,
         degraded_threshold=0.10,

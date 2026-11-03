@@ -37,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from controller.routing import PathPolicy, SWITCHES, forwarding_rules
 from controller.probes import ProbeTracker, ENDPOINTS, ETHERTYPE
 from controller.probe_schedule import AdaptiveProbeSchedule
+from controller.multipath import eligible_paths
 
 
 COOKIE = 0x5255445000000001
@@ -79,6 +80,7 @@ class FailoverController(AppBase):
         # Each path/direction has its own next-probe deadline.
         self.next_probe_ns = {key: 0 for key in ENDPOINTS}
 
+        self.multipath_paths = frozenset()
         self.last_route_change_ns = 0
         self.monitor = hub.spawn(self._monitor)
 
@@ -404,7 +406,9 @@ class FailoverController(AppBase):
 
         path = self.policy.choose(self.path)
 
-        if not force and path == self.path:
+        multipath_paths = eligible_paths(self.policy, path)
+
+        if not force and path == self.path and multipath_paths == self.multipath_paths:
             return
 
         now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
@@ -423,7 +427,9 @@ class FailoverController(AppBase):
                 )
                 return
 
-        self.last_route_change_ns = now
+        if path != self.path:
+            self.last_route_change_ns = now
+        self.multipath_paths = multipath_paths
 
         self._event(
             "route_decision",
@@ -490,7 +496,7 @@ class FailoverController(AppBase):
             ))
 
             # DATA uses DSCP 8 for upper and DSCP 16 for lower.
-            multipath_paths = {
+            multipath_rules = {
                 "upper": (
                     8,
                     ((1, 1, 2), (2, 1, 2), (4, 1, 3)),
@@ -501,7 +507,7 @@ class FailoverController(AppBase):
                 ),
             }
 
-            for path_name, (dscp, entries) in multipath_paths.items():
+            for path_name, (dscp, entries) in multipath_rules.items():
                 details = self.policy.availability_details(path_name)
 
                 self._event(
@@ -514,7 +520,8 @@ class FailoverController(AppBase):
                     unavailable_ports=details["unavailable_ports"],
                 )
 
-                if not details["available"]:
+                # Health changes can remove a branch even while its ports stay up.
+                if path_name not in multipath_paths:
                     continue
 
                 for switch_id, ingress, output in entries:

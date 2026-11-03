@@ -60,6 +60,24 @@ def stop(process):
 
 
 class LocalTests(unittest.TestCase):
+    def test_multipath_client_transfers_with_weights(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source, output = Path(folder)/'input', Path(folder)/'output'
+            data = os.urandom(32769)
+            source.write_bytes(data)
+            receiver, address = server(output)
+            try:
+                result = subprocess.run(
+                    [str(CLIENT), address[0], str(address[1]), str(source),
+                     '--multipath', '--upper-weight', '3', '--lower-weight', '1'],
+                    capture_output=True, text=True, timeout=15)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                _, stderr = receiver.communicate(timeout=12)
+                self.assertEqual(receiver.returncode, 0, stderr)
+                self.assertEqual(output.read_bytes(), data)
+            finally:
+                stop(receiver)
+
     def test_binary_sizes(self):
         def transfer(size):
             with tempfile.TemporaryDirectory() as folder:

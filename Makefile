@@ -9,6 +9,8 @@ clean:
 test: all
 	python3 tests/test_protocol.py
 	python3 tests/test_transport.py
+	python3 tests/test_multipath.py
+	python3 tests/test_probe_schedule.py
 	python3 tests/test_probes.py
 	python3 tests/test_openflow.py
 	python3 tests/test_controller.py
