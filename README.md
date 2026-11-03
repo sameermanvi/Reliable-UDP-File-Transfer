@@ -1,5 +1,34 @@
 # Reliable UDP file transfer with SDN failover
 
+## One-command assessment menu
+
+Run from the repository root.
+
+```sh
+make demo
+```
+
+Press **1–8** to select a stage, **a** to run stages 1–6, or **q** to quit.
+The menu starts both C endpoints, waits for receiver readiness, streams their
+output and verifies CRC32 and SHA-256. Stage 3 uses ports 9000 and 9001.
+Stage 2 runs two independent 10% loss executions on the same 1 MiB payload.
+Its A/B numbers describe those executions and can vary between runs.
+
+SDN stages detect native Mininet/OVS or a running Docker engine. The Docker image
+is rebuilt using cached layers to match this checkout. Network trials use fresh results directories and open the
+generated timeline when a desktop viewer is available. Stage 5 always runs its
+tests and reports when live SDN is unavailable. Stage 6 reads the retained
+180-outcome evaluation, clearly labelled with its earlier measurement scope.
+Stage 7 runs the complete current test suite. Stage 8 runs the browser console
+until Ctrl-C returns to the menu.
+
+For a single non-interactive stage use
+`python3 scripts/run.py interactive --step 1`.
+The alias `python3 scripts/run.py menu` opens the same menu. Some network tests
+and static failures take longer than a ten-minute presentation, so rehearse and
+select the stages needed for the assessment.
+
+
 ## Live telemetry console
 
 Run the console from the repository root. It builds the C binaries and opens the browser.
