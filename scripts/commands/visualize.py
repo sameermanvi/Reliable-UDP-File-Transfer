@@ -66,7 +66,7 @@ class Session:
             def run():
                 try:
                     if mode == 'scenario':
-                        run_scenario(options['scenario'], self.results, self.emit, self.cancel, self.loss)
+                        run_scenario(options['scenario'], self.results, self.emit, self.cancel, self.loss, options['packets'])
                     elif mode == 'live':
                         run_live(options, self.emit, self.cancel, self.loss)
                     else:
@@ -105,7 +105,14 @@ def live_options(body):
     rate = body.get('drop_rate', 0.1)
     if type(rate) not in (float, int) or not math.isfinite(rate) or not 0 <= rate <= 1:
         raise ValueError('drop_rate must be between 0 and 1')
-    return dict(options, drop_rate=rate)
+    return dict(options, drop_rate=rate, packets=packet_count(body))
+
+
+def packet_count(body):
+    value = body.get("packets", 32)
+    if type(value) is not int or value not in (16, 32, 1024):
+        raise ValueError("Select 16, 32 or 1024 packets")
+    return value
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -204,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
             session.cancel.set()
             if session.worker:
                 session.worker.join(timeout=10)
-            return session.start('scenario', dict(scenario=number))
+            return session.start('scenario', dict(scenario=number, packets=packet_count(body)))
         if path == '/api/start':
             return session.start('live', live_options(body))
         if path == '/api/replay-trial':

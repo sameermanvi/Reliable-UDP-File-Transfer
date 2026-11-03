@@ -35,19 +35,17 @@ select the stages needed for the assessment.
 python3 scripts/run.py viz
 ```
 
-Choose a numbered preset. Scenarios 1–3 execute real 1 MiB C transfers with the
-displayed transport settings. Scenario 4 runs the no-SACK and SACK variants on
-identical bytes and compares their measured outcomes. Scenarios 5–6 automatically
-load verified upper-path link-cut recordings, preferring live-failover/live-static
-directories when available and falling back to the retained evaluation.
+Choose 1 for a clean 32 KiB transfer, 2 or 3 for the same first-attempt losses
+at packets 4, 14 and 23, or 4 to compare both modes on identical bytes.
+The C endpoints run first. Guided playback merges their events and relay frames
+by timestamp. Blue means sent, amber means buffered, and green means the client
+has acknowledged the contiguous prefix. Each card keeps its original ID.
+Scenario 5 replays a measured Mininet failover. For longer files the board
+shows the first 32 packets while the counters cover the entire transfer.
 
-Play, pause and single-event stepping affect visual presentation. The backend
-continues collecting the real run into an SSE journal. Slow Explain Mode samples
-key transitions at one event per second and holds the first occurrence of each major milestone for four seconds.
-The event strip identifies the source and recorded time when available. A white outline identifies the current sequence inside the window.
-The counters follow the displayed event, and measured backend timestamps remain
-independent of presentation delays. Duplicate DATA arrivals are reported separately
-from final file integrity.
+Use Viva Smart for a guided walkthrough, Step-by-step to stop at losses and
+retries, or Instant to reach the result. Click a story entry to inspect its
+packet states. Playback speed is independent of the measured transfer duration.
 
 Raw logs, wire bytes, manual transport settings and active-trial tail controls are
 inside the collapsed advanced drawer. Pause a red gap, amber buffered chunk or
@@ -105,7 +103,7 @@ Use this as an ownership and rehearsal plan. Attribute implementation work to it
 | 1 — Sender and reliability | 0:00–2:00 | 1, then 2 | “UDP gives us datagrams. Our sender adds sequence numbers, a bounded 32-slot window and retransmission. A missing ACK holds the contiguous base.” Point to a missing slot and the timer. |
 | 2 — Receiver and integrity | 2:00–4:00 | 3 | “The receiver saves later chunks instead of discarding them. SACK reports which chunks are already buffered. Once the hole is repaired, the contiguous prefix advances. CRC32 checks the file before finalization and independent SHA-256 verifies it.” Point to amber slots, the bitmap and MATCH. |
 | 3 — SDN control | 4:00–7:00 | 5 | “The application cannot repair a broken path. OpenFlow port status detects the hard cut. The controller installs the lower branch and waits for barriers. Separate bidirectional probes detect soft degradation and assess the backup.” Pause on LINK DOWN and ROUTE READY. |
-| 4 — Integration and evidence | 7:00–9:00 | 6, then 4 | “A static route cannot deliver through a permanent cut. The recorded matrix contains 132 hash-matched transfers and 48 expected static failures. This A/B pair is a separate live comparison.” Point to the failure outcome and measured comparison bars. |
+| 4 — Integration and evidence | 7:00–9:00 | CLI stage 6, then web preset 4 | “A static route cannot deliver through a permanent cut. The recorded matrix contains 132 hash-matched transfers and 48 expected static failures. This A/B pair is a separate live comparison.” Point to the failure outcome and measured comparison bars. |
 | All — Questions | 9:00–10:00 | Pause | Each person answers for the module they reviewed. Every member should be able to trace START → DATA/ACK → FIN and link down → route ready → useful ACK. |
 
 Prepare the recorded traces and A/B results before the assessment so selection and

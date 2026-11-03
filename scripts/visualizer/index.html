@@ -21,7 +21,7 @@
       <button data-scenario="1">
         <b>01</b
         ><span
-          >Baseline UDP Transfer<small
+          >Clean Transfer<small
             >0% loss · handshake, pipeline and integrity</small
           ></span
         >
@@ -58,26 +58,31 @@
           ></span
         >
       </button>
-      <button data-scenario="6">
-        <b>06</b
-        ><span
-          >SDN Link Cut WITHOUT Failover<small
-            >Recorded static-route failure</small
-          ></span
-        >
-      </button>
     </nav>
     <div class="playbar">
       <button id="play">Play</button><button id="pause">Pause</button
-      ><button id="step">Step 1 Event</button
+      ><button id="step">Next event</button
       ><label
         >Speed
         <select id="speed">
-          <option value="slow">Slow (Explain Mode)</option>
-          <option value="normal">Normal</option>
+          <option value="smart">Viva Smart</option>
+          <option value="step">Step-by-step</option>
+          <option value="instant">Instant</option>
         </select></label
       ><button id="stop">Stop</button
       ><span id="position">Waiting for a scenario</span>
+    </div>
+    <div class="playbar">
+      <button id="prev">Previous event</button
+      ><button id="jump">Next drop / recovery</button
+      ><input
+        id="scrub"
+        type="range"
+        aria-label="Event position"
+        min="0"
+        max="0"
+        value="0"
+      />
     </div>
     <div id="event-focus">Awaiting first event</div>
     <div id="live-narration" role="status" aria-live="polite">
@@ -85,8 +90,9 @@
       or explore a recorded link cut.
     </div>
     <p id="notice">
-      Explain mode samples key transitions at one event per second. Raw records remain
-      available below. Playback timing is separate from measured backend time.
+      Viva Smart plays ordinary events at 120 ms and holds milestones for 1.2 s.
+      Raw records remain available below. Playback timing is separate from
+      measured backend time.
     </p>
     <main>
       <section class="network">
@@ -146,7 +152,7 @@
         <div id="route-status">Awaiting transfer</div>
       </section>
       <section>
-        <h2>B / SELECTIVE REPEAT WINDOW</h2>
+        <h2>B / PACKET DELIVERY BOARD</h2>
         <div class="legend">
           <span class="green">Delivered prefix</span
           ><span class="blue">In flight</span
@@ -155,12 +161,13 @@
           ><span class="cyan">Fast retry</span>
         </div>
         <p id="window-label">32 bounded slots · waiting for backend state</p>
+        <div id="client-state">Client</div>
+        <div id="lane">CLIENT ↔ UDP WIRE ↔ SERVER</div>
+        <div id="server-state">Server</div>
         <div id="ring"></div>
         <div id="mask">SACK register —</div>
-        <small
-          >Green prefix is below base and has left the active ring. Red requires
-          an observed drop or missing-base event.</small
-        >
+        <h3>What happened &amp; when</h3>
+        <ol id="story"></ol>
       </section>
       <section class="scoreboard">
         <h2>C / LIVE SCOREBOARD</h2>
@@ -188,8 +195,8 @@
         <div id="comparison" hidden>
           <h3>MEASURED A/B COMPARISON</h3>
           <p>
-            Same payload and 10% loss probability. Actual loss draws differ
-            between runs.
+            Identical payload and first-attempt losses. Each default run drops 3
+            of 32 original DATA packets.
           </p>
           <div id="bars"></div>
         </div>
@@ -197,6 +204,15 @@
     </main>
     <details id="advanced">
       <summary>Advanced Manual Controls &amp; Raw Wire Logs</summary>
+      <label
+        >Payload
+        <select id="packets">
+          <option>32</option>
+          <option>16</option>
+          <option>1024</option>
+        </select>
+        packets (1 KiB each)</label
+      >
       <nav>
         <button id="run">Run manual transfer</button
         ><label><input id="sack" type="checkbox" checked />SACK</label

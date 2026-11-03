@@ -34,18 +34,29 @@ class Unpaced:
     def wait(self, seconds, stop):
         return not stop.is_set()
 
-def run_scenario(number, root, emit, stop, loss):
+def run_scenario(number, root, emit, stop, loss, packets=32):
+    def transfer(variant, output, payload=None):
+        config = dict(options(variant), packets=packets)
+        if variant != 1:
+            config['drop_sequences'] = [n for n in range(packets-1) if n % 32 in (4,14,23)]
+        records = []
+        try:
+            run_live(config, records.append, stop, loss, payload=payload)
+        finally:
+            for record in sorted(records, key=lambda r: r['monotonic_ns']):
+                output(record)
+
     if number in (1,2,3):
-        run_live(options(number), emit, stop, loss)
+        transfer(number, emit)
     elif number == 4:
-        payload = os.urandom(1024*1024)
+        payload = os.urandom(packets*1024)
         for variant in (2,3):
             if stop.is_set():
                 return
             emit(dict(event='variant_start', source='session', variant=variant, **options(variant)))
             def tagged(record):
                 emit(dict(record, variant=variant))
-            run_live(options(variant), tagged, stop, loss, payload=payload)
+            transfer(variant, tagged, payload)
     else:
         trial, metrics = select_trial(root, number)
         emit(dict(event='trial_metadata', source='session', file_bytes=metrics['file_bytes'],

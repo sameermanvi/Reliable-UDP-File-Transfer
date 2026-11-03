@@ -1,4 +1,10 @@
 "use strict";
+let focusSequence,
+  sessionInfo = {},
+  timeline = [],
+  cursor = 0,
+  board = [],
+  cumulative = 0;
 const $ = (id) => document.getElementById(id);
 const names = [
   "",
@@ -26,7 +32,7 @@ const talking = {
     "Karn’s rule avoids ambiguous RTT samples; RTO and cwnd respond to measured feedback.",
   ],
   4: [
-    "Both variants send the same 1 MiB payload, with independent 10% loss draws.",
+    "Both variants send identical bytes and lose the same first attempts at the relay.",
     "Compare measured duration, goodput and extra sends. A single pair does not establish statistical superiority.",
     "Duplicate DATA arrivals are distinct from duplicate deliveries. The finalized file must match.",
   ],
@@ -49,9 +55,7 @@ let queue = [],
   nextAt = 0,
   origin = null,
   scenario = 0;
-let ring = [],
-  base = 0,
-  route = "upper",
+let route = "upper",
   broken = new Set(),
   activeAnimation = null;
 let seenMilestones = new Set(),
@@ -72,7 +76,7 @@ function blank() {
     bytes: 0,
     rto: null,
     cwnd: null,
-    total: 1048576,
+    total: (sessionInfo.packets || 32) * 1024,
   };
 }
 let view = blank();
@@ -92,16 +96,76 @@ async function request(path, body = {}) {
 function error(exc) {
   $("notice").textContent = exc.message;
 }
-let focusSequence;
+
+let nextSeq = 0,
+  receiverBase = null,
+  duplicates = null;
+function clearBoard() {
+  cumulative = 0;
+  nextSeq = 0;
+  receiverBase = null;
+  duplicates = null;
+  board = Array.from(
+    { length: Math.min(sessionInfo.packets || 32, 32) },
+    () => ({ state: "WAITING", retries: 0 }),
+  );
+}
+function seek(position) {
+  const events = timeline,
+    start = sessionInfo,
+    clock = origin,
+    done = backendDone,
+    records = raw,
+    counters = producer;
+  reset(start);
+  timeline = events;
+  origin = clock;
+  backendDone = done;
+  raw = records;
+  producer = counters;
+  while (cursor < position) present(events[cursor++]);
+  queue = events.slice(position);
+  paused = true;
+  $("scrub").max = events.length;
+  $("scrub").value = position;
+}
+function advance() {
+  if (!queue.length) return;
+  cursor++;
+  present(queue.shift());
+  $("scrub").value = cursor;
+}
+const pivotal = (e) =>
+  ["dropped_gap", "retransmit", "link_down", "recovery"].includes(e.event);
+$("prev").onclick = () => seek(Math.max(0, cursor - 1));
+$("jump").onclick = () => {
+  const i = timeline.findIndex((e, i) => i >= cursor && pivotal(e));
+  if (i >= 0) seek(i + 1);
+};
+$("scrub").onchange = () => seek(Number($("scrub").value));
+document.addEventListener("keydown", (e) => {
+  if (
+    e.code === "Space" &&
+    !["INPUT", "SELECT", "BUTTON"].includes(e.target.tagName)
+  ) {
+    e.preventDefault();
+    (paused ? $("play") : $("pause")).click();
+  }
+});
 function reset(event) {
+  sessionInfo = event;
+  timeline = [];
+  cursor = 0;
+  clearBoard();
+  $("story").replaceChildren();
+  $("scrub").value = $("scrub").max = 0;
   focusSequence = undefined;
   $("event-focus").textContent = "Awaiting first event";
   backendDone = false;
   queue = [];
   raw = [];
   origin = null;
-  ring = [];
-  base = 0;
+
   route = "upper";
   broken.clear();
   seenMilestones.clear();
@@ -116,6 +180,11 @@ function reset(event) {
   paused = false;
   nextAt = 0;
   scenario = event.scenario || 0;
+  $("integrity").textContent = "PENDING";
+  $("lane").textContent = "CLIENT ↔ UDP WIRE ↔ SERVER";
+  $("client-state").textContent = "CLIENT";
+  $("server-state").textContent = "SERVER";
+  $("bars").replaceChildren();
   $("status").textContent = "RECEIVING REAL DATA";
   $("comparison").hidden = scenario !== 4;
   $("verify").textContent = "Verification pending";
@@ -162,6 +231,7 @@ for (const button of document.querySelectorAll("[data-scenario]"))
         "Preparing the selected real run or recorded trace…";
       await request("/api/scenario", {
         scenario: Number(button.dataset.scenario),
+        packets: Number($("packets").value),
       });
     } catch (exc) {
       error(exc);
@@ -180,10 +250,10 @@ $("pause").onclick = () => {
 };
 $("step").onclick = () => {
   paused = true;
-  if (queue.length) present(queue.shift());
+  advance();
 };
 $("speed").onchange = () => {
-  slow = $("speed").value === "slow";
+  slow = $("speed").value !== "instant";
   nextAt = 0;
 };
 $("stop").onclick = async () => {
@@ -198,6 +268,7 @@ $("stop").onclick = async () => {
 };
 $("run").onclick = () =>
   request("/api/start", {
+    packets: Number($("packets").value),
     sack: $("sack").checked,
     adaptive_rto: $("adaptive").checked,
     cc: $("cc").checked,
@@ -218,42 +289,29 @@ fetch("/api/trials")
   .catch(error);
 function renderRing() {
   $("window-label").textContent =
-    "base " +
-    base +
-    " … " +
-    (base + 31) +
-    " | DELIVERED IN ORDER < " +
-    base +
-    (scenario >= 5 ? " | event-derived recording" : " | sender state");
+    "Permanent packet IDs · showing #0–" +
+    (board.length - 1) +
+    " · client ACK covers " +
+    cumulative +
+    " packets";
   $("ring").replaceChildren(
-    ...Array.from({ length: 32 }, (_, i) => {
-      const slot = ring[i],
-        div = document.createElement("div");
-      div.className = "slot " + (slot?.state || "");
-      if (focusSequence === base + i) div.classList.add("current-slot");
-      const num = document.createElement("b");
-      num.textContent = slot?.sequence ?? base + i;
-      div.append(num);
-      div.append(
-        document.createTextNode(
-          slot
-            ? {
-                UNSENT: "UNSENT",
-                IN_FLIGHT: "IN FLIGHT",
-                SACKED_OO_BUFFERED: "BUFFERED",
-                DROPPED_GAP: "MISSING",
-                FAST_RETRANSMIT: "FAST RETRY",
-                ACKED_CONTIGUOUS: "DELIVERED",
-              }[slot.state] || slot.state
-            : "—",
-        ),
-      );
-      if (slot?.gap_reports)
-        div.append(
-          document.createElement("br"),
-          document.createTextNode("gap " + slot.gap_reports + "/3"),
-        );
-      return div;
+    ...board.map((slot, n) => {
+      const card = document.createElement("div");
+      card.className =
+        "slot board-" +
+        slot.state.split(" ")[0] +
+        (n === focusSequence ? " current-slot" : "");
+      for (const text of [
+        "PKT #" + n,
+        n * 1024 + "–" + (n * 1024 + 1023) + " B",
+        slot.state,
+        slot.retries ? "Retries: " + slot.retries : "",
+      ]) {
+        const line = document.createElement("div");
+        line.textContent = text;
+        card.append(line);
+      }
+      return card;
     }),
   );
 }
@@ -351,7 +409,38 @@ function ingest(e) {
   if (e.event === "ack_progress") producer.bytes = e.bytes;
   if (e.event === "trial_metadata") producer.total = e.file_bytes;
   e.view = { ...producer };
-  if (keyEvent(e)) queue.push(e);
+  const local = sessionInfo.packets <= 32 && scenario < 5;
+  const recordedCut = scenario === 5;
+  const keep = recordedCut
+    ? [
+        "trial_metadata",
+        "link_down",
+        "route_ready",
+        "recovery",
+        "recorded_metrics",
+        "session_end",
+      ].includes(e.event) ||
+      (["send", "ack_progress", "retransmit"].includes(e.event) &&
+        (e.sequence < 32 || e.base <= 32))
+    : local
+      ? [
+          "send",
+          "ack_progress",
+          "out_of_order",
+          "retransmit",
+          "dropped_gap",
+          "variant_start",
+          "verification",
+          "session_end",
+        ].includes(e.event) ||
+        (e.event === "frame" &&
+          ([2, 9].includes(e.wire_type) || (e.wire_type === 10 && e.sack_mask)))
+      : keyEvent(e);
+  if (keep) {
+    queue.push(e);
+    timeline.push(e);
+    $("scrub").max = timeline.length;
+  }
 }
 const stream = new EventSource("/api/stream");
 stream.onmessage = (m) => ingest(JSON.parse(m.data));
@@ -410,11 +499,6 @@ function frame(e) {
       " | base " +
       e.sack_base;
 }
-function mark(sequence, state) {
-  const i = sequence - base;
-  if (i >= 0 && i < 32)
-    ring[i] = { sequence, state, gap_reports: ring[i]?.gap_reports || 0 };
-}
 function compare() {
   const a = results[2],
     b = results[3];
@@ -423,7 +507,8 @@ function compare() {
   for (const [key, label, unit] of [
     ["seconds", "Total time", "s"],
     ["goodput_mbps", "Payload goodput", "Mb/s"],
-    ["retransmits", "Retransmissions", "DATA"],
+    ["fast_retries", "Fast retries", "DATA"],
+    ["timeout_retries", "Timeout retries", "DATA"],
     ["duplicates", "Duplicate DATA arrivals", "packets"],
   ]) {
     const row = document.createElement("div");
@@ -459,11 +544,11 @@ function present(e) {
   if (focusSequence != null) focus.push("sequence #" + focusSequence);
   if (e.path) focus.push("path " + e.path);
   if (e.monotonic_ns && origin !== null)
-    focus.push("trace time " + ((e.monotonic_ns - origin) / 1e9).toFixed(3) + " s");
+    focus.push(
+      "trace time " + ((e.monotonic_ns - origin) / 1e9).toFixed(3) + " s",
+    );
   $("event-focus").textContent = focus.filter(Boolean).join("  ·  ");
   if (e.event === "variant_start") {
-    ring = [];
-    base = 0;
     $("integrity").textContent = "PENDING";
     say(
       "A/B run " +
@@ -509,40 +594,17 @@ function present(e) {
         e.direction === "ack",
       );
   }
-  if (
-    e.source === "sender" &&
-    e.base !== undefined &&
-    e.event !== "ring_snapshot" &&
-    e.base !== base
-  ) {
-    base = e.base;
-    ring = Array.from(
-      { length: 32 },
-      (_, i) =>
-        ring.find((s) => s?.sequence === base + i) || {
-          sequence: base + i,
-          state: "UNSENT",
-          gap_reports: 0,
-        },
-    );
-  }
-  if (e.event === "ring_snapshot") {
-    base = e.base;
-    ring = e.slots.map((s) => ({ ...s }));
-  }
   if (e.event === "send") {
-    mark(seq, "IN_FLIGHT");
     packet("DATA #" + seq);
     say(
       "PIPELINED DATA #" +
         seq +
         ": The sender retains this chunk until ACK coverage frees the slot. Current contiguous base is " +
-        base +
+        cumulative +
         ".",
     );
   }
   if (e.event === "dropped_gap") {
-    mark(seq, "DROPPED_GAP");
     packet("DROP #" + seq, true);
     say(
       "OBSERVED PACKET DROP #" +
@@ -550,12 +612,11 @@ function present(e) {
         ": " +
         (e.reason === "operator_injection"
           ? "The operator dropped this DATA datagram."
-          : "The sender’s configured random-loss simulation discarded this DATA attempt.") +
+          : "The loss injector discarded this DATA attempt before delivery.") +
         " Later chunks may arrive while this gap holds the window.",
     );
   }
   if (e.event === "out_of_order") {
-    mark(seq, "SACKED_OO_BUFFERED");
     say(
       "OUT-OF-ORDER #" +
         seq +
@@ -565,10 +626,8 @@ function present(e) {
           : "In SACK mode a bitmap reports buffered coverage to the sender."),
     );
   }
-  if (e.event === "gap_detected") mark(e.base, "DROPPED_GAP");
   if (e.event === "retransmit") {
     const fast = e.reason === "fast_gap";
-    mark(seq, fast ? "FAST_RETRANSMIT" : "IN_FLIGHT");
     packet((fast ? "FAST RETRY #" : "TIMEOUT #") + seq, broken.has(route));
     say(
       (fast
@@ -645,6 +704,15 @@ function present(e) {
         "; independent SHA-256 " +
         (e.sha256_match ? "matches." : "differs."),
     );
+    e.fast_retries = timeline
+      .slice(0, cursor)
+      .filter(
+        (r) =>
+          r.variant === e.variant &&
+          r.event === "retransmit" &&
+          r.reason === "fast_gap",
+      ).length;
+    e.timeout_retries = e.retransmits - e.fast_retries;
     if (e.variant) {
       results[e.variant] = e;
       compare();
@@ -695,6 +763,138 @@ function present(e) {
       cwnd: view.cwnd,
     });
     if (series.length > 2000) series.shift();
+  }
+  if (e.event === "variant_start") clearBoard();
+  if (e.event === "send") nextSeq = Math.max(nextSeq, seq + 1);
+  if (e.sack_base !== undefined) receiverBase = e.sack_base;
+  if (e.event === "verification") duplicates = e.duplicates;
+  const previousBase = cumulative;
+  const slot = board[seq];
+  let story = "";
+  if (slot && seq >= cumulative) {
+    if (e.event === "send") slot.state = "FLIGHT · IN FLIGHT";
+    if (e.event === "dropped_gap") slot.state = "DROPPED ✕ IN TRANSIT";
+    if (e.event === "out_of_order") slot.state = "BUFFERED · SERVER RECEIVED";
+    if (e.event === "retransmit") {
+      slot.retries++;
+      slot.state = "RETRY · " + (e.reason === "fast_gap" ? "FAST" : "TIMEOUT");
+    }
+  }
+  if (e.event === "frame" && e.wire_type === 10 && e.sack_mask) {
+    const buffered = [];
+    board.forEach((b, n) => {
+      const bit = n - e.sack_base;
+      if (
+        n >= cumulative &&
+        bit >= 0 &&
+        bit < 32 &&
+        (e.sack_mask >>> bit) & 1
+      ) {
+        b.state = "BUFFERED · SERVER GOT IT (SACK=1)";
+        buffered.push("#" + n);
+      }
+    });
+    story =
+      "Server SACK: contiguous through #" +
+      (e.sack_base - 1) +
+      "; buffered " +
+      buffered.join(", ") +
+      " · mask 0x" +
+      e.sack_mask.toString(16);
+  }
+  if (
+    e.event === "ack_progress" ||
+    (e.event === "verification" && e.sha256_match && e.crc32_match) ||
+    (e.event === "recorded_metrics" && $("integrity").textContent === "MATCH")
+  ) {
+    cumulative = Math.max(
+      cumulative,
+      e.event === "ack_progress" ? e.base : Math.ceil(view.total / 1024),
+    );
+    board
+      .slice(0, cumulative)
+      .forEach((b) => (b.state = "ACKED ✓ RECEIVED & ACKED"));
+    if (e.event === "ack_progress")
+      story =
+        "Client ACK coverage advanced through packet #" +
+        (cumulative - 1) +
+        ".";
+  }
+  if (
+    e.event === "ack_progress" &&
+    board.some((b, n) => b.retries && n >= previousBase && n < e.base)
+  )
+    story += " A retransmitted packet is now covered.";
+  if ([2, 9].includes(e.wire_type))
+    story =
+      "START acknowledged. Session 0x" +
+      e.transfer_id +
+      (e.wire_type === 9 ? " negotiated SACK." : " uses plain ACKs.");
+  if (story) say(story);
+  if (
+    pivotal(e) ||
+    story ||
+    ["verification", "route_ready", "recorded_metrics"].includes(e.event) ||
+    [2, 9].includes(e.wire_type)
+  ) {
+    const item = document.createElement("li"),
+      button = document.createElement("button"),
+      at = cursor;
+    button.textContent =
+      (e.monotonic_ns && origin !== null
+        ? ((e.monotonic_ns - origin) / 1e9).toFixed(3) + " s · "
+        : "") + $("live-narration").textContent;
+    item.className = "story-" + e.event;
+    button.onclick = () => seek(at);
+    item.append(button);
+    $("story").append(item);
+  }
+  $("client-state").textContent =
+    "Client · ACK base " +
+    cumulative +
+    " · next seq " +
+    nextSeq +
+    " · RTO " +
+    (view.rto?.toFixed(0) ?? "—") +
+    " ms · cwnd " +
+    (view.cwnd ?? "—");
+  $("server-state").textContent =
+    "Server · last in order " +
+    (receiverBase === null ? "—" : receiverBase - 1) +
+    " · duplicates " +
+    (duplicates ?? "—") +
+    " · buffered cards " +
+    board.filter((b) => b.state.startsWith("BUFFERED")).length +
+    " · integrity " +
+    $("integrity").textContent;
+  const wire = $("lane");
+  if (
+    e.event === "send" ||
+    e.event === "retransmit" ||
+    e.event === "dropped_gap" ||
+    e.event === "frame" ||
+    e.event === "ack_progress"
+  ) {
+    const reverse = e.direction === "ack" || e.event === "ack_progress";
+    const drop = e.event === "dropped_gap";
+    const badge = document.createElement("span");
+    badge.textContent = drop
+      ? "✕ DROP #" + seq
+      : story ||
+        (e.event === "frame"
+          ? "Wire frame " + e.wire_type + " · CRC32 0x" + e.crc32
+          : e.event.toUpperCase() + " #" + seq);
+    wire.replaceChildren(badge);
+    badge.animate(
+      [
+        { transform: "translateX(" + (reverse ? "25%" : "-25%") + ")" },
+        {
+          transform:
+            "translateX(" + (drop ? "0" : reverse ? "-25%" : "25%") + ")",
+        },
+      ],
+      { duration: drop ? 450 : 120, fill: "forwards" },
+    );
   }
   renderRing();
   renderCounters();
@@ -760,8 +960,13 @@ setInterval(() => {
   $("position").textContent =
     (paused ? "PAUSED · " : "") + "Key events queued " + queue.length;
   if (paused || !queue.length || performance.now() < nextAt) return;
-  const e = queue.shift();
-  present(e);
+  const e = queue[0];
+  advance();
+  if ($("speed").value === "step" && pivotal(e)) paused = true;
+  if ($("speed").value === "instant") {
+    while (queue.length) advance();
+    return;
+  }
   const milestone =
     e.event === "retransmit" && e.reason === "fast_gap"
       ? "fast_retry"
@@ -779,7 +984,7 @@ setInterval(() => {
   ].includes(milestone);
   const hold = slow && important && !seenMilestones.has(milestone);
   if (hold) seenMilestones.add(milestone);
-  nextAt = performance.now() + (hold ? 4000 : slow ? 1000 : 30);
+  nextAt = performance.now() + (hold || pivotal(e) ? 1200 : 120);
 }, 20);
 setInterval(renderRaw, 500);
 $("filter").oninput = renderRaw;
