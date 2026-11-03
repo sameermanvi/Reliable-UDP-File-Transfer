@@ -1,44 +1,10 @@
-# Reliable UDP transfer with SDN recovery — final report
+# Experimental results
 
-## Objective and assessed behavior
+## Merged multipath and adaptive probe implementation
 
-Transfer binary files correctly through loss, corruption, duplication and
-reordering, while SDN restores a broken path during the same upload. The C
-application provides Selective Repeat reliability; OS-Ken controls the Mininet
-diamond. Correctness requires explicit completion, size/CRC agreement and final
-independent SHA-256 equality. Silence is failure, never successful completion.
+The implementation merged in PR #15 passed 67 tests on Linux ARM64. Four targeted Mininet transfers with multipath enabled finished with matching SHA-256 hashes. Hard failure recovered in 15.301 ms from upper to lower and 42.178 ms from lower to upper, measured from link down to the first useful ACK after route readiness. Soft degradation switched paths. In the healthy trial the ingress switch counted 3,636 upper and 3,633 lower marked packets. These are single trials. The following repeated experiments measured the earlier controller.
 
-## Implementation
-
-The final system has a version-1 24-byte header and an explicitly negotiated
-bitmap ACK extension. Adaptive DATA RTO uses SRTT, variation, Karn sampling and
-bounded backoff; distinct later ACK coverage supports fast retransmit. A capped
-congestion window is independent of the 32-slot receiver window. Legacy ACK and
-fixed-RTO modes remain selectable. Wire validation precedes state mutation.
-
-Static routing keeps the initial branch. Failover routing immediately excludes
-hard failures. Bidirectional Ethernet probes independently exercise both live
-branches, including an idle backup. Fresh EWMA loss/elapsed-latency scores,
-hysteresis and a route hold-down govern soft moves; hard failure bypasses the
-hold-down. Barrier-confirmed route_ready and continued ACK progress remain
-separate observations. Details and limits are in ARCHITECTURE.md.
-
-## Method and metrics
-
-The final Linux evaluation command is:
-
-```sh
-sudo .venv/bin/python scripts/evaluate.py --output results/rubric-final
-```
-
-It runs tests first, then at least three independent repetitions of routing ×
-RTO × ACK format with 0/2% configured per-egress loss and failure times 0.5/1.5 s
-after observed ACK progress. It additionally tests lower→upper recovery,
-loss/reordering/short primary flaps and soft loss without link-down. CC is held off
-in the main comparison to avoid confounding those axes. Source fingerprints,
-environment, raw events, flow/queue dumps, all trial outcomes and hashes are saved.
-Linux netem random draws and virtualization scheduling vary; the input generator
-is seeded, which does not make the network stochastic process deterministic.
+## Measurement definitions
 
 | Metric | Exact definition |
 | --- | --- |
@@ -51,46 +17,61 @@ is seeded, which does not make the network stochastic process deterministic.
 | Route installation | Failure-command start → barrier-confirmed alternate route_ready |
 | Censored recovery | No qualifying route or later useful progress before observation ends/next intervention; reported N/A |
 
-Reports retain failed rows and distinguish expected static failure from successful
-transfer. Means/min–max use successful flows; numeric sample counts are explicit.
-Multiple concurrent flows share one network trial and are not independent repeats.
-Barrier completion is not globally atomic switching or proof of an ACK's physical
-route. The final hash is independent evidence of application delivery.
+## Local transport measurements: measured on macOS, three repeats per configuration
 
-## Executed findings and evidence
+**48 automated tests passed. All 60/60 final localhost transfers completed with
+matching recorded input/output SHA-256.** Each transfer is 64 KiB; the proxy delays
+DATA/ACK directions equally and uses deterministic faults, not a bottleneck queue.
 
-The final local evaluation passed 48 automated tests and 60/60 independently
-hash-verified transfers. Adaptive RTO halved retries (64→32) at 260 ms nominal RTT
-without loss. Bitmap feedback reduced retries 4→1 in the low-delay DATA/ACK-loss
-case. Together they reduced high-delay fault retries 72→33. These are three-repeat
-64 KiB localhost proxy comparisons, not Mininet throughput benchmarks. Goodput in
-the high-delay fault case changed little (0.7093→0.7090 Mb/s). Capped slow start
-lowered short uncontended-flow goodput; a fairness/queueing benefit was not tested.
+| Controlled comparison (CC off) | Before retries | After retries | Result |
+| --- | ---: | ---: | --- |
+| 260 ms nominal RTT, no loss: fixed → adaptive RTO, plain ACK | 64 | 32 | 50% fewer unnecessary retries |
+| 10 ms nominal RTT, DATA 10 and ACKs 5–7 initially lost: plain → bitmap, fixed RTO | 4 | 1 | 75% fewer retries |
+| 260 ms nominal RTT, same faults: fixed/plain → adaptive/bitmap | 72 | 33 | 54.2% fewer retries |
 
-Artifacts: [test log](../results/rubric-final-native/tests.log),
-[hash-bearing metrics](../results/rubric-final-native/transport/metrics.csv),
-[environment](../results/rubric-final-native/transport/environment.json),
-[summaries/plots](../results/rubric-final-native/transport/plots/summary.md).
-See KEY_RESULTS.md for the short table and direct plot links.
+These counts were identical across all three repeats in each listed cell.
+Goodput changed little: the high-delay fault case was 0.7093 versus 0.7090 Mb/s.
+The gain here is lower extra traffic, not a claimed speedup. Fast gap recovery is
+held on in both ACK modes. The first window still pays for an initial RTO that is
+too short. At 10 ms RTT without faults, enabling CWND reduced mean goodput from
+15.144 to 6.752 Mb/s on this short uncontended transfer; no fairness benefit is
+claimed from this dataset.
 
-## Final Linux findings
+Evidence: [test log](../results/rubric-final-native/tests.log),
+[execution manifest](../results/rubric-final-native/evaluation.json),
+[raw measurements and hashes](../results/rubric-final-native/transport/metrics.csv),
+[full cell summaries](../results/rubric-final-native/transport/plots/summary.md).
 
-The Ubuntu 22.04 container on the Ubuntu 26.04 ARM64 VM completed 180/180
-trial expectations across three repeats: 132 hash-matched successes and 48
-expected static failures. Upper→lower failover passed 48/48, lower→upper 3/3,
-robustness 6/6 and probe soft degradation 3/3. The 57 recovered trial rows have
-median link-down→useful-ACK latency 85.554 ms, mean 116.743 ms, and range
-12.276–401.377 ms. Censored outcomes remain null and are excluded from latency
-statistics. These are userspace OVS measurements, not physical-switch or kernel
-OVS results. [Validation](VALIDATION.md) defines the samples and evidence limits;
-[metrics](../results/rubric-final/matrix/metrics.csv) retain individual outcomes.
+Plots: [retry counts](../results/rubric-final-native/transport/plots/retransmits.svg),
+[retry fraction](../results/rubric-final-native/transport/plots/retransmit_fraction.svg),
+[goodput](../results/rubric-final-native/transport/plots/goodput_mbps.svg),
+[adaptive RTO/CWND trace](../results/rubric-final-native/transport/trace/timeline.svg).
 
-## Deliberate limits
+## Repeated Linux evaluation
 
-This is a topology-specific lab uploader, not TCP or an FTP-compatible service.
-It omits authentication, encryption, persistent resume, arbitrary topology
-discovery, mature fairness/pacing and crash durability. Probes include control
-channel delay and sample loss noisily. Window 32 caps memory and throughput.
-Long outages exceed inactivity/retry budgets. Virtualized userspace OVS timings
-must not be generalized to physical switches without measurement. No frontend
-or unrelated portfolio work was needed for the rubric.
+[Manifest](../results/rubric-final/evaluation.json) and
+[test log](../results/rubric-final/tests.log): **48 tests passed; 180/180 trial
+expectations met, 132 successful transfers with matching recorded input/output
+SHA-256, 48 expected permanent-failure static-routing failures.**
+
+- Matrix: 168 trials; 24 normal and 48 loss successes, 48 upper→lower failover
+  successes, 48 expected static failures.
+- Lower→upper: 3/3 successful; robustness: 6/6 under 2% loss, 20% reordering
+  and 0.5/2 s flaps; soft degradation: 3/3 successful with probe health-driven
+  upper→lower changes and no link-down event.
+- Across 57 recovered trial rows, ordered link_down→route_ready→first contiguous
+  ACK advancement is confirmed. Link-down→ACK: median **85.554 ms**, mean
+  **116.743 ms**, range **12.276–401.377 ms**. Injection→ACK is distinct:
+  median 88.493 ms, mean 119.945 ms, range 14.076–405.743 ms.
+- Keep 48 censored static recovery rows and 75 not-applicable rows as null.
+  Per-intervention records separately retain 58 recovered, 48 censored and
+  218 inactive-path outages; these are not the trial-level latency sample.
+
+Environment: Ubuntu 26.04.1 ARM64 VM host; Ubuntu 22.04 Docker image,
+Python 3.10.12, OVS 2.17.12, **userspace datapath**. Kernel datapath validation
+is not claimed. Payloads were deleted by the runner; SHA-256 equality is verified
+from retained digest records and endpoint completion, not a fresh payload rehash.
+
+[Matrix](../results/rubric-final/matrix/metrics.csv),
+[lower recovery](../results/rubric-final/lower-recovery/metrics.csv),
+[robustness](../results/rubric-final/robustness/metrics.csv).

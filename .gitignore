@@ -3,7 +3,8 @@
 /server
 /src/client
 /src/server
-/src/*.o
+*.o
+*.bin
 
 # Python environments and caches
 .venv/
@@ -14,12 +15,11 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Local experiment outputs; retain the two verified bundles and history archive
+# Local experiment outputs; retain the two verified bundles
 /results/*
 !/results/README.md
 !/results/rubric-final/
 !/results/rubric-final-native/
-!/results/archive/
 *.part.??????
 
 # OS/editor scratch files

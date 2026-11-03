@@ -1,96 +1,45 @@
 # Live demonstration
 
-The validated route is Ubuntu 22.04 Docker with userspace OVS (Docker command below).
-Native setup targets Ubuntu 22.04; newer Python versions may not support the pinned
-Eventlet dependency. Use a prepared **Linux** host with Mininet, OVS and OS-Ken. From the repository:
+Run the localhost examples from the repository root in a Linux shell. Each receiver exits after one upload.
+
+## Transfer under loss
 
 ```sh
-sudo sh scripts/setup_env.sh                 # setup once; needs package access
-make test                                   # preflight before the presentation
-sudo .venv/bin/python scripts/run.py demo --mode failover --output results/live-failover
+make
+dd if=/dev/urandom of=sample.bin bs=1024 count=256
+./server 9000 out.bin & receiver=$!
+sleep 0.2
+./client --host 127.0.0.1 --port 9000 --file sample.bin --sack --adaptive-rto --cc --drop-rate 0.10 && wait "$receiver" && cmp sample.bin out.bin
+sha256sum sample.bin out.bin
 ```
 
-The command owns topology/controller/endpoint startup and cleanup. It:
-1. Starts OS-Ken in failover mode, connects the diamond, waits for route_ready
-   and verifies host connectivity.
-2. Starts an 8 MiB C transfer and waits for actual contiguous ACK progress.
-3. After 0.5 s of progress, takes the active branch's s1 link down permanently.
-4. Prints LINK DOWN, ROUTE READY on the alternate, completion, recovery latency
-   and `sha256_match=True`. No application restart and no primary-link restoration.
-
-Say: “The controller restores reachability; Selective Repeat recovers missing
-chunks. These are separate events within the same upload.”
-
-Open the trial's `plots/timeline.svg`: red link_down, green route_ready, purple
-first useful post-route ACK. Open root `metrics.csv` for source/output SHA-256,
-recovery measurements and success. The console prints the result directory;
-each trial retains `controller.jsonl`, `progress-0.jsonl`, `receiver-0.jsonl`,
-endpoint logs, `outages-0.json`, and initial/final flow and queue dumps.
-`success=True`, `sha256_match=True`, and `expectation_met=True` are all required.
-
-## Static contrast and robustness (ready, not all needed live)
-
-```sh
-sudo .venv/bin/python scripts/run.py demo --mode static --output results/live-static
-sudo .venv/bin/python scripts/run.py demo --initial-path lower --output results/live-lower
-sudo .venv/bin/python scripts/run.py demo --scenario robust --output results/live-robust
-sudo .venv/bin/python scripts/run.py demo --scenario soft-degradation --mib 16 --output results/live-soft
-```
-
-Static contrast keeps the broken branch: no alternate route_ready, client fails,
-receiver times out, no finalized output. `expectation_met=True` means the expected
-failure was observed, not that the transfer succeeded. Adaptive retry exhaustion
-can take about a minute; have this run recorded before presenting if time is tight.
-Lower-initial proves lower→upper recovery. Robust combines loss, host reordering
-and repeated short primary flaps. Soft degradation adds loss without taking a
-link down; probe scores must cause a health_update route change.
-
-Use fresh output directories. Keep the input large enough for injection; a trial
-that finishes too early is rejected. If failure timing or resources invalidate a
-run, show the error and rerun; never call an uninjected run successful failover.
-
-Docker alternative after starting Docker Desktop/Engine:
-
-```sh
-docker build -t rudp-lab .
-docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/run.py demo --mode failover --datapath user --output results/live-failover
-```
-
-## Retained evaluation
-
-The completed three-repeat Linux Docker/userspace OVS evaluation met 180/180
-expectations. See [Key Results](KEY_RESULTS.md) and [validation](VALIDATION.md).
-Do not run the full matrix during a ten-minute presentation.
-
-For a new full run use a fresh output directory:
-
-```sh
-docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python scripts/run.py evaluate --output "results/evaluation-$(date +%Y%m%d-%H%M%S)"
-```
-
-## Ten-minute assessment sequence
-
-1. Explain the two independent responsibilities: UDP reliability and SDN routing.
-2. Show the diamond in ARCHITECTURE.md, then run one failover demo.
-3. Point out initial route, injected link-down, alternate route readiness,
-   hash-matched completion, and the joined timeline.
-4. Show KEY_RESULTS.md for static contrast and repeated measurements.
-5. Use CODE_MAP.md to locate the requested implementation; VIVA.md gives the
-   design rationale. Keep a retained final timeline available if live setup fails.
-
-The console's `recovery=` is injection-to-progress, not link-down-to-progress.
-The CSV and joined events distinguish both. Never label a startup failure or
-uninjected transfer as successful failover.
+Show the matching digests and the sender’s retry count. Simulated loss applies to outgoing DATA attempts.
 
 ## Two simultaneous uploads
 
-Each flow uses a separate receiver process and UDP port on h2; the receiver is
-one upload per process, rather than a persistent multi-session service. Both
-senders run on h1. This demonstrates concurrent uploads, not separate sender hosts.
-
 ```sh
-sudo .venv/bin/python scripts/run.py experiment --scenarios link-failure --modes failover --rtos adaptive --sacks bitmap --ccs off --flows 2 --repeats 1 --output results/live-concurrent
+./server 9000 out0.bin & r0=$!
+./server 9001 out1.bin & r1=$!
+sleep 0.2
+./client 127.0.0.1 9000 sample.bin & c0=$!
+./client 127.0.0.1 9001 sample.bin & c1=$!
+wait "$c0" && wait "$c1" && wait "$r0" && wait "$r1" && cmp sample.bin out0.bin && cmp sample.bin out1.bin
+sha256sum sample.bin out0.bin out1.bin
 ```
 
-Check both flow rows for success, matching hashes and recovery. Rehearse this
-before assessment; use retained output during the ten-minute presentation.
+Each process owns one port and one destination file.
+
+## OpenFlow 1.3 failover and static contrast
+
+Build the image once. Use fresh output directories for each rehearsal.
+
+```sh
+docker build -t rudp-lab .
+run_dir="results/demo-$(date +%Y%m%d-%H%M%S)"
+for mode in failover static; do
+  docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python3 scripts/run.py demo --mode "$mode" --output "$run_dir/$mode" || break
+done
+find "$run_dir" -name timeline.svg
+```
+
+Open the failover trial’s timeline.svg in a browser. Point to link down, alternate route ready and the first ACK that advances the contiguous file prefix. The output hash must match. In static mode the route stays on the failed branch and the transfer fails as expected. Prepare the static run before the presentation to avoid waiting for retry exhaustion.

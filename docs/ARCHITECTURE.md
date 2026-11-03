@@ -150,7 +150,7 @@ particular ACK. Final output SHA-256 establishes integrity independently.
 No route or no later useful ACK is censored/N/A, never zero. Repeated-fault
 attribution ends at the next intervention; a failure on the inactive branch is
 labeled separately. The joined SVG and recovery JSON preserve all three timestamps.
-See PROGRESS_LOG.md, DEMO.md and scripts/evaluate.py.
+See [Demo](DEMO.md) for commands.
 
 ## Optional multipath DATA and adaptive probes
 
@@ -169,5 +169,42 @@ Probe deadlines are independent per branch/direction. Successful healthy probes
 increase spacing up to 1.5 seconds; loss halves it to a 100 ms minimum. Degraded
 paths are capped at 250 ms. The tracker still expires outstanding probes at
 500 ms; the 1.5 s spacing leaves that deadline inside the 2 s health freshness.
-These changes need fresh Linux measurements; historical fixed-interval
-results do not measure their overhead or recovery behavior.
+The [report](REPORT.md) separates targeted Linux measurements of adaptive probes
+from the repeated matrix collected with fixed probe spacing.
+
+## Implementation map
+
+| Location | Entry point | Responsibility |
+| --- | --- | --- |
+| `src/packet.h` | constants, packet types | 24-byte wire header, 1024-byte chunks, 32-slot bound |
+| `src/client.c` | `main` → `exchange` → `send_file` | Metadata/negotiation, reliable DATA, explicit FIN |
+| `src/client.c` | `send_file` send loop | Sequence span and CWND jointly bound outstanding sends |
+| `src/client.c` | `send_file` ACK block | Validate SACK before state changes; mark coverage and collect clean RTT samples |
+| `src/client.c` | `gap_reports` / `fast_sent` | Three distinct later ACKs trigger one fast retry; timeout remains the fallback |
+| `src/server.c` | `data_ack`, `main` | Buffer reordered DATA, drain the contiguous prefix, send ACK/bitmap |
+| `src/server.c` | FIN handling | Verify size/CRC, close and rename temporary output; re-ACK duplicate FIN |
+| `src/utils.c` | `packet_encode`, `packet_decode` | Explicit network-order serialization and CRC/length validation |
+| `src/utils.c` | `receive_packet`, `send_packet` | UDP socket operations and bounded receive wait |
+| `controller/routing.py` | `PathPolicy.choose` | Exclude hard failures; prefer materially better fresh health |
+| `controller/probes.py` | `ProbeTracker` | Validate independent branch probes, expire losses, smooth directional samples |
+| `controller/failover.py` | `_monitor`, `port_status`, `_reconcile`, `barrier_reply` | Probe scheduling, hard-failure events, rule installation and readiness |
+| `scripts/commands/run_experiments.py` | `run_trial`, `recovery_metrics` | Inject faults, verify endpoint/hash outcomes and join recovery events |
+| `scripts/commands/evaluate.py` | `linux_plan`, `main` | Run tests and repeated matrix; save manifest and plots |
+
+
+## Design trade-offs
+
+| Choice | Reason | Accepted cost / limit |
+| --- | --- | --- |
+| C/POSIX UDP and one event loop | Socket mechanics, ACKs and retries are explainable | Single upload per receiver; no shared service |
+| Selective Repeat, 32 slots | Buffer later packets; retry only missing coverage; bounded memory | Head holes limit sequence span; high bandwidth-delay paths can underfill |
+| 32-bit bitmap plus cumulative base | Repeated receiver state repairs lost ACK information in eight payload bytes | One bitmap revision, explicit opt-in START types, no automatic downgrade |
+| Adaptive RTO + Karn + backoff | Avoid repeated premature retries on slow paths; reject ambiguous RTTs | Initial 200 ms may still be too short; 50–2000 ms lab bounds |
+| Three distinct later ACKs | Fast gap recovery without a new DATA format | Reordering may trigger a needless retry; no full TCP recovery |
+| Capped slow start / additive increase | Basic sender response to loss | Short uncontended flows get slower; fairness is unproven |
+| Same monotonic clock | Join application behavior to link-down and rule readiness | Only comparable on the same kernel |
+| Bidirectional branch probes | Measure the idle backup and soft degradation without changing UDP | Probe loss is noisy; control-channel latency contributes; small extra traffic |
+| EWMA, freshness, score threshold, hold-down | Avoid routing on stale/small transient differences | Soft detection deliberately slower than hard failure |
+| Hard failures override health | A live but unhealthy route is preferable to a broken one | If neither branch works, retries cannot manufacture connectivity |
+| Independent SHA-256 and atomic rename | Strong experimental correctness evidence; failed transfer preserves destination | CRC-32 itself is not authentication; rename is not power-loss durability |
+| CC off in the main matrix | Isolate routing, RTO and ACK format effects | CWND behavior is verified and separately ablated, not a fairness claim |
