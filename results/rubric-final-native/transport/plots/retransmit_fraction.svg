@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="730" viewBox="0 0 1100 730">
 <rect width="100%" height="100%" fill="white"/>
 <style>text{font:12px sans-serif;fill:#1e293b} .title{font-size:18px;font-weight:bold}</style>
-<text x="20" y="28" class="title">Retransmission overhead: retries / all DATA sends (mean; range whiskers)</text>
+<text x="20" y="28" class="title">Retry fraction of all DATA sends</text>
+<text x="20" y="49">Lower means less retry overhead. Bar = mean across completed transfers. Black line = observed range.</text>
 <text x="15" y="77">5ms one-way | local-delay | fixed / plain / CC off</text>
 <rect x="580" y="65" width="0.00" height="18" fill="#2563eb"/>
 <path d="M580.00,74 H580.00" stroke="#111827" stroke-width="2"/>
@@ -61,7 +62,7 @@
 <text x="15" y="525">130ms one-way | local-delay | adaptive / bitmap / CC on</text>
 <rect x="580" y="513" width="131.85" height="18" fill="#2563eb"/>
 <path d="M658.22,522 H738.67" stroke="#111827" stroke-width="2"/>
-<text x="721.85" y="526">0.166</text>
+<text x="748.67" y="526">0.166</text>
 <text x="15" y="557">130ms one-way | local-faults | fixed / plain / CC off</text>
 <rect x="580" y="545" width="420.00" height="18" fill="#2563eb"/>
 <path d="M1000.00,554 H1000.00" stroke="#111827" stroke-width="2"/>
@@ -73,7 +74,7 @@
 <text x="15" y="621">130ms one-way | local-faults | fixed / bitmap / CC off</text>
 <rect x="580" y="609" width="401.76" height="18" fill="#2563eb"/>
 <path d="M979.74,618 H982.77" stroke="#111827" stroke-width="2"/>
-<text x="991.76" y="622">0.506</text>
+<text x="992.77" y="622">0.506</text>
 <text x="15" y="653">130ms one-way | local-faults | adaptive / bitmap / CC off</text>
 <rect x="580" y="641" width="269.90" height="18" fill="#2563eb"/>
 <path d="M849.90,650 H849.90" stroke="#111827" stroke-width="2"/>
@@ -81,5 +82,5 @@
 <text x="15" y="685">130ms one-way | local-faults | adaptive / bitmap / CC on</text>
 <rect x="580" y="673" width="97.21" height="18" fill="#2563eb"/>
 <path d="M658.22,682 H705.26" stroke="#111827" stroke-width="2"/>
-<text x="687.21" y="686">0.123</text>
+<text x="715.26" y="686">0.123</text>
 </svg>

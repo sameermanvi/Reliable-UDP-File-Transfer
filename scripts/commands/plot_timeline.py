@@ -26,8 +26,10 @@ def bar_plot(rows, output, metric, title):
         key = f"{row['delay_ms']}ms one-way | {row['scenario']} | {row['rto']} / {row['sack']} / CC {row['cc']}"
         groups[key].append(row)
     width, height = 1100, 90 + 32 * len(groups)
-    lines = svg_start(width, height, title + ' (mean; range whiskers)')
-    maximum = max(float(r[metric]) for r in rows) or 1
+    lines = svg_start(width, height, title)
+    cue = "Higher means faster delivery." if metric == "goodput_mbps" else "Lower means less retry overhead."
+    lines.append(f'<text x="20" y="49">{cue} Bar = mean across completed transfers. Black line = observed range.</text>')
+    maximum = max((float(r[metric]) for r in rows if str(r['success']).lower() == 'true'), default=1) or 1
     for index, (label, group) in enumerate(groups.items()):
         values = [float(r[metric]) for r in group if str(r['success']).lower() == 'true']
         y = 65 + index * 32
@@ -39,7 +41,7 @@ def bar_plot(rows, output, metric, title):
         scale = 420 / maximum
         lines.append(f'<rect x="580" y="{y}" width="{mean*scale:.2f}" height="18" fill="#2563eb"/>')
         lines.append(f'<path d="M{580+min(values)*scale:.2f},{y+9} H{580+max(values)*scale:.2f}" stroke="#111827" stroke-width="2"/>')
-        lines.append(f'<text x="{590+mean*scale:.2f}" y="{y+13}">{mean:.3f}</text>')
+        lines.append(f'<text x="{590+max(values)*scale:.2f}" y="{y+13}">{mean:.3f}</text>')
     lines.append('</svg>')
     output.write_text('\n'.join(lines))
 
@@ -52,7 +54,7 @@ def timeline(progress, controller, output):
         raise ValueError("No events to plot")
     start = min(e['monotonic_ns'] for e in combined)
     duration = max((e['monotonic_ns']-start)/1e9 for e in combined) or 1
-    lines = svg_start(1200, 1120, "Reliable UDP recovery across an OpenFlow route change")
+    lines = svg_start(1200, 1120, "Transfer timeline · " + progress.parent.name)
     lines.append('<text x="20" y="52">Shared monotonic clock · application measurements · time in seconds from first recorded event</text>')
     advances = sorted((e for e in app if e['event']=='ack_progress'), key=lambda e:e['monotonic_ns'])
     observations = []
@@ -87,6 +89,13 @@ def timeline(progress, controller, output):
     else:
         lines.append('<text x="20" y="82" class="title">Recovery N/A — no complete link-down → route-ready → useful-ACK sequence</text>')
         markers = [(e,'LINK DOWN','#dc2626') for e in network if e['event']=='link_down'][:3]
+    if observations:
+        # Magnify only the outage. The panels below retain the full transfer clock.
+        lines.append('<text x="540" y="131" class="title">Recovery interval, enlarged</text>')
+        middle = 540 + 500 * install / total
+        lines.append(f'<path d="M540,153 H{middle:.2f}" stroke="#15803d" stroke-width="9"/>')
+        lines.append(f'<path d="M{middle:.2f},153 H1040" stroke="#0369a1" stroke-width="9"/>')
+        lines.append('<text x="540" y="179">Green = installing the route · blue = waiting for useful ACK progress</text>')
     for i,(event,label,color) in enumerate(markers):
         when=(event['monotonic_ns']-start)/1e9
         lines.append(f'<text x="20" y="{132+i*22}" style="fill:{color}">{escape(label)}  t = {when:.6f} s</text>')
@@ -123,7 +132,7 @@ def timeline(progress, controller, output):
         for tick in range(6):
             lines.append(f'<text x="{125+200*tick}" y="{top+143}" text-anchor="middle">{duration*tick/5:.2f}</text>')
         lines.append(f'<text x="1125" y="{top+165}" text-anchor="end">Elapsed monotonic time (s)</text>')
-    lines.append('<text x="20" y="1060">Markers may share an x-position at full-run scale; the timestamp rows above retain exact ordering and intervals.</text>')
+    lines.append('<text x="20" y="1060">An upward ACK line means more of the file is confirmed. A flat stretch means the contiguous prefix has stopped advancing.</text>')
     lines.append('<text x="20" y="1084">Blue lines: measured application state · retry dots: amber fast gap / red timeout · congestion window belongs to this UDP implementation.</text>')
     lines.append('</svg>')
     output.write_text('\n'.join(lines))

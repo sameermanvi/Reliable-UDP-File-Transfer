@@ -81,6 +81,5 @@ from retained digest records and endpoint completion, not a fresh payload rehash
 The [labelled recovery timeline](../results/presentation/timeline.svg) is regenerated
 from the retained lower-recovery trial's progress, controller and outage records.
 The [goodput comparison](../results/presentation/goodput_mbps.svg) is regenerated
-from matrix/metrics.csv. Multi-line configuration labels, units, sample counts and
-mean/range annotations make each group identifiable. These are new renderings of
+from matrix/metrics.csv. Rows identify the configurations being compared. Each dot marks a mean and each line spans the observed range. Shared settings appear above the plot. These are new renderings of
 the recorded measurements.

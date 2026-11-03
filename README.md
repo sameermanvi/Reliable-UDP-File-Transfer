@@ -1,5 +1,16 @@
 # Reliable UDP file transfer with SDN failover
 
+Transfer a binary file over UDP while an SDN controller routes around a failed
+or degraded network path. The C11 transport implements Selective Repeat, SACK, adaptive RTO and congestion control. The Python OpenFlow 1.3 controller schedules adaptive probes, reroutes around failures and supports weighted multipath DATA.
+
+## Quick start
+
+| Command | Opens or runs |
+| --- | --- |
+| `make demo` | Interactive eight-stage CLI assessment console |
+| `python3 scripts/run.py viz` | Live 32-packet browser telemetry at [localhost:8080](http://localhost:8080) |
+| `make test` | Full automated test suite |
+
 ## One-command assessment menu
 
 Run from the repository root.
@@ -39,7 +50,7 @@ python3 scripts/run.py viz
 
 Choose one of the five numbered scenarios. The default 32-packet guided playback supports play, pause and single-event stepping. Advanced manual controls and raw logs are collapsed below the three main panels. The console captures actual
 24-byte headers through a UDP relay, streams sender/receiver JSONL records, shows
-the sender ring snapshots, and reports independent SHA-256 verification. The relay
+permanent packet cards, and reports independent SHA-256 verification. The relay
 adds 15 ms in each direction to make the transitions visible. **Drop next DATA**
 discards one observed DATA datagram.
 
@@ -49,9 +60,6 @@ monotonic timing with play, pause, single-step and speed controls. Older recordi
 supply only the fields they retained. The localhost run supplies transport data,
 while Mininet recordings supply controller events.
 
-
-Transfer a binary file over UDP while an SDN controller routes around a failed
-or degraded network path. The C11 transport implements Selective Repeat, SACK, adaptive RTO and congestion control. The Python OpenFlow 1.3 controller schedules adaptive probes, reroutes around failures and supports weighted multipath DATA.
 
 ## Try a file transfer on localhost
 
@@ -132,6 +140,6 @@ It provides no authentication, encryption, persistent resume or TCP fairness.
 
 ![Lower-branch failure and application recovery](results/presentation/timeline.svg)
 
-The retained Linux trial shows the sequence of controller and application events.
+Read the enlarged recovery interval first. The controller spent 1.227 ms installing the replacement route, then waited 41.038 ms for the first advancing ACK. The full transfer recovered in 42.265 ms from the observed cut. Compare successful configurations in the [goodput plot](results/presentation/goodput_mbps.svg).
 Across the measured evaluation, 132 transfers matched their hashes and 48 static
 failures were expected. [Measurements and scope](docs/REPORT.md).
