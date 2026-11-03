@@ -61,3 +61,4 @@ jobs:
             results/ci*/**/*.svg
             results/ci*/**/*.md
             results/ci*/**/*.txt
+            !**/input.bin

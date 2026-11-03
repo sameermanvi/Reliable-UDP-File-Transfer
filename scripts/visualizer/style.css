@@ -1,0 +1,186 @@
+:root {
+  color-scheme: dark;
+  font:
+    12px "JetBrains Mono",
+    "Fira Code",
+    monospace;
+  font-variant-numeric: tabular-nums;
+  background: #0d1117;
+  color: #c9d1d9;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header,
+nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #30363d;
+  flex-wrap: wrap;
+}
+header {
+  justify-content: space-between;
+  font-size: 15px;
+}
+button,
+input,
+select {
+  font: inherit;
+  background: #0d1117;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  padding: 7px;
+}
+button {
+  cursor: pointer;
+}
+button:hover {
+  border-color: #8b949e;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #58a6ff;
+}
+input[type="number"] {
+  width: 75px;
+}
+#trials {
+  max-width: 300px;
+}
+#notice {
+  padding: 0 20px;
+  color: #8b949e;
+}
+main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 0 16px 12px;
+}
+section {
+  background: #161b22;
+  border: 1px solid #30363d;
+  padding: 14px;
+  min-width: 0;
+}
+h2 {
+  font-size: 12px;
+  font-weight: 500;
+  margin: 0 0 15px;
+  color: #8b949e;
+  letter-spacing: 1px;
+}
+small {
+  color: #8b949e;
+  line-height: 1.8;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  max-height: 220px;
+  overflow: auto;
+}
+#header {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+}
+.byte {
+  border: 1px solid #30363d;
+  text-align: center;
+  padding: 6px;
+}
+.byte small {
+  display: block;
+}
+#ring {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  margin: 12px 0;
+}
+.slot {
+  white-space: pre-line;
+  border: 1px solid #30363d;
+  padding: 7px 3px;
+  font-size: 9px;
+  text-align: center;
+  min-height: 57px;
+  overflow-wrap: anywhere;
+}
+.IN_FLIGHT {
+  border-color: #58a6ff;
+}
+.SACKED_OO_BUFFERED {
+  border-color: #3fb950;
+}
+.FAST_RETRANSMIT,
+.DROPPED_GAP {
+  border-color: #d29922;
+}
+svg,
+canvas {
+  width: 100%;
+  display: block;
+}
+canvas {
+  height: 180px;
+  margin: 8px 0;
+}
+.events {
+  margin: 0 16px 16px;
+}
+.events h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.scroll {
+  height: 250px;
+  overflow: auto;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+  table-layout: fixed;
+}
+th,
+td {
+  padding: 7px;
+  border-bottom: 1px solid #30363d;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+th:nth-child(1) {
+  width: 85px;
+}
+th:nth-child(2) {
+  width: 85px;
+}
+th:nth-child(3) {
+  width: 160px;
+}
+thead {
+  position: sticky;
+  top: 0;
+  background: #161b22;
+}
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+  nav {
+    gap: 8px;
+  }
+  #header {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}

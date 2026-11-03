@@ -28,6 +28,8 @@
 | How do you know the file is complete? | FIN is accepted only after all advertised bytes are written and whole-file CRC agrees. Close succeeds, then the temporary file is renamed. Silence is failure, never success. |
 | Why can adaptive RTO or CWND reduce speed? | A conservative timer can delay recovery, and slow start costs short-flow throughput. We report the measured tradeoff instead of assuming every mechanism makes every run faster. |
 | What did you deliberately omit? | TCP byte-stream semantics, mature fairness/pacing, ECN, encryption, arbitrary topology discovery, resume and a frontend. They do not earn the targeted reliability/SDN evidence within this lab. |
-| Which results validate the final SDN probes? | The final Linux bundle: 180/180 expectations, including 3/3 soft-degradation and 6/6 robustness trials. It used Ubuntu 22.04 Docker/userspace OVS; see VALIDATION.md. |
+| How does multipath work? | The client maps DATA sequence numbers to weighted DSCP marks. The controller uses multipath.py to decide which branches may carry those marks. Retries retain their mark. |
+| Why adapt probe timing? | probe_schedule.py spaces out successful probes on healthy branches and probes faster after loss. This measures the idle backup while limiting overhead. |
+| What does test_transfer_with_spaces_in_filenames verify? | tests/test_local.py starts the real sender and receiver with paths containing spaces, checks both exit codes and compares the received bytes. |
 
-Live commands: DEMO.md. Artifact-backed numbers: KEY_RESULTS.md and REPORT.md.
+[Measurements](REPORT.md) · [Live commands](DEMO.md)

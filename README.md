@@ -1,8 +1,28 @@
 # Reliable UDP file transfer with SDN failover
 
+## Live telemetry console
+
+Run the console from the repository root. It builds the C binaries and opens the browser.
+
+```sh
+python3 scripts/run.py viz
+```
+
+Choose transport flags and click **Run Live C Transfer**. The console captures actual
+24-byte headers through a UDP relay, streams sender/receiver JSONL records, shows
+the sender ring snapshots, and reports independent SHA-256 verification. The relay
+adds 15 ms in each direction to make the transitions visible. **Drop next DATA**
+discards one observed DATA datagram.
+
+Load a trial from the selector or enter a directory under results/ and select
+**Tail active trial** for a running Mininet experiment. Replay preserves recorded
+monotonic timing with play, pause, single-step and speed controls. Older recordings
+supply only the fields they retained. The localhost run supplies transport data,
+while Mininet recordings supply controller events.
+
+
 Transfer a binary file over UDP while an SDN controller routes around a failed
-or degraded network path. The C application repairs missing packets; the OS-Ken
-controller restores reachability through a four-switch Mininet diamond.
+or degraded network path. The C11 transport implements Selective Repeat, SACK, adaptive RTO and congestion control. The Python OpenFlow 1.3 controller schedules adaptive probes, reroutes around failures and supports weighted multipath DATA.
 
 ## Try a file transfer on localhost
 
@@ -72,8 +92,8 @@ docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python 
 | `mininet/` | Diamond topology and netem impairments |
 | `scripts/` | Setup, demo, evaluation, local benchmark and plots |
 | `tests/` | Protocol, transport, controller and integration tests |
-| `results/` | Final Linux/local evidence and labelled historical archive |
-| `docs/` | [Architecture](docs/ARCHITECTURE.md), [code map](docs/CODE_MAP.md), [design decisions](docs/DESIGN_DECISIONS.md), [validation](docs/VALIDATION.md), [report](docs/REPORT.md), [viva](docs/VIVA.md), [rubric](docs/RUBRIC_MAPPING.md) |
+| `results/` | Final Linux/local evidence |
+| `docs/` | [Architecture](docs/ARCHITECTURE.md), [Report](docs/REPORT.md), [Demo](docs/DEMO.md), [Viva](docs/VIVA.md) |
 
 This is a topology-specific lab implementation, not a production transport.
 It provides no authentication, encryption, persistent resume or TCP fairness.
@@ -85,4 +105,4 @@ It provides no authentication, encryption, persistent resume or TCP fairness.
 
 The retained Linux trial shows the sequence of controller and application events.
 Across the measured evaluation, 132 transfers matched their hashes and 48 static
-failures were expected. [Measurements and scope](docs/KEY_RESULTS.md).
+failures were expected. [Measurements and scope](docs/REPORT.md).

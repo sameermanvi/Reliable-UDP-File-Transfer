@@ -54,7 +54,7 @@ def main():
     parser.add_argument('--plan-only', action='store_true')
     args = parser.parse_args()
     if args.repeats < 3:
-        parser.error('final evaluation requires at least three repetitions; use demo.py for a quick check')
+        parser.error('final evaluation requires at least three repetitions; use python3 scripts/run.py demo for a quick check')
     output = args.output.resolve()
     if not args.local_only and not args.plan_only and (sys.platform != 'linux' or os.geteuid() != 0):
         parser.error('Linux/root required; use --plan-only here, or --local-only for transport evidence')
@@ -68,7 +68,7 @@ def main():
     save()
     if args.plan_only:
         (output/'README.md').write_text('# Pending Linux evaluation\n\nThis directory contains a command plan, not measured results.\n'
-            'On a prepared Linux host run `sudo .venv/bin/python scripts/evaluate.py --output results/rubric-final`.\n'
+            'On a prepared Linux host run `sudo .venv/bin/python scripts/run.py evaluate --output results/rubric-final`.\n'
             'Expected: tests.log, evaluation.json, matrix/, lower-recovery/, robustness/, each with CSV/JSON, '
             'plots/summary.md, controller/endpoint/progress logs, hashes and per-trial joined timelines.\n')
         print(output/'evaluation.json')
