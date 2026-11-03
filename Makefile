@@ -17,3 +17,8 @@ test: all
 	python3 tests/test_metrics.py
 	python3 tests/test_local.py
 	python3 tests/test_visualize.py
+	python3 tests/test_interactive.py
+
+.PHONY: demo
+demo: all
+	python3 scripts/run.py interactive
