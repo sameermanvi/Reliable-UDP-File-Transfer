@@ -15,26 +15,28 @@ import zlib
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def run_live(options, emit, stop_event, loss_control):
+def run_live(options, emit, stop_event, loss_control, payload=None):
     def publish(event, **fields):
         emit(dict(event=event, source='relay', monotonic_ns=time.monotonic_ns(), **fields))
     with tempfile.TemporaryDirectory(prefix='rudp-viz-') as folder:
         folder = Path(folder)
         source, output = folder/'input.bin', folder/'output.bin'
-        source.write_bytes(os.urandom(256*1024))
+        source.write_bytes(payload if payload is not None else os.urandom(1024*1024))
         reserve = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         reserve.bind(('127.0.0.1', 0))
         port = reserve.getsockname()[1]
         reserve.close()
         relay = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         relay.bind(('127.0.0.1', 0))
-        logs, handles, processes = {}, [], []
+        loss_path = folder/'drops.jsonl'
+        loss_path.touch()
+        logs, handles, processes = {'loss': loss_path.open()}, [], []
         try:
             for role in ('receiver', 'sender'):
                 path = folder/(role+'.jsonl')
                 logs[role] = None
                 handles.append((folder/(role+'.log')).open('w+'))
-                env = dict(os.environ, RUDP_PROGRESS_LOG=str(path), RUDP_VIZ_RING="1")
+                env = dict(os.environ, RUDP_PROGRESS_LOG=str(path), RUDP_VIZ_RING="1", RUDP_VIZ_DROP_LOG=str(loss_path))
                 if role == 'receiver':
                     command = [str(ROOT/'server'), str(port), str(output)]
                 else:
@@ -114,10 +116,19 @@ def run_live(options, emit, stop_event, loss_control):
             original = source.read_bytes()
             received = output.read_bytes() if output.exists() else b''
             match = output.exists() and hashlib.sha256(original).digest() == hashlib.sha256(received).digest()
-            publish('verification', sha256_match=match, source_sha256=hashlib.sha256(original).hexdigest(),
+            def fields(name):
+                import re
+                return dict(re.findall(r'(\w+)=([^\s]+)', (folder/name).read_text()))
+            sent, accepted = fields('sender.log'), fields('receiver.log')
+            expected_crc = f'{zlib.crc32(original):08x}'
+            crc_match = sent.get('crc32') == accepted.get('crc32') == expected_crc
+            publish('verification', sha256_match=match, crc32_match=crc_match, file_bytes=len(original),
+                    seconds=float(sent.get('seconds', 0)), goodput_mbps=float(sent.get('goodput_mbps', 0)),
+                    data_sends=int(sent.get('data_sends', 0)), retransmits=int(sent.get('retransmits', 0)),
+                    duplicates=int(accepted.get('duplicates', 0)), out_of_order=int(accepted.get('out_of_order', 0)), source_sha256=hashlib.sha256(original).hexdigest(),
                     output_sha256=hashlib.sha256(received).hexdigest() if output.exists() else None,
                     crc32=f'{zlib.crc32(original):08x}', sender_exit=codes[1], receiver_exit=codes[0])
-            if codes != [0, 0] or not match:
+            if codes != [0, 0] or not match or not crc_match:
                 raise RuntimeError('Transfer failed: ' + (folder/'sender.log').read_text() + (folder/'receiver.log').read_text())
         finally:
             for process in processes:

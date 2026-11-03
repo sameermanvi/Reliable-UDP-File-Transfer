@@ -2,6 +2,7 @@
 import argparse
 import json
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -16,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "scripts/visualizer"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from viz_live import run_live
+from viz_scenarios import run_scenario
 from viz_replay import Playback, list_trials, resolve_trial, run_replay
 
 
@@ -63,7 +65,9 @@ class Session:
 
             def run():
                 try:
-                    if mode == 'live':
+                    if mode == 'scenario':
+                        run_scenario(options['scenario'], self.results, self.emit, self.cancel, self.loss)
+                    elif mode == 'live':
                         run_live(options, self.emit, self.cancel, self.loss)
                     else:
                         run_replay(trial, mode == 'follow', self.emit, self.cancel, self.playback)
@@ -193,6 +197,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def control(self, path, body):
         session = self.server.session
+        if path == '/api/scenario':
+            number = body.get('scenario')
+            if type(number) is not int or not 1 <= number <= 6:
+                raise ValueError('Select a scenario from 1 to 6')
+            session.cancel.set()
+            if session.worker:
+                session.worker.join(timeout=10)
+            return session.start('scenario', dict(scenario=number))
         if path == '/api/start':
             return session.start('live', live_options(body))
         if path == '/api/replay-trial':
@@ -213,7 +225,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise Busy('No active session')
             if path == '/api/stop':
                 session.cancel.set()
-            elif path == '/api/inject-loss' and session.mode == 'live':
+            elif path == '/api/inject-loss' and session.mode in ('live', 'scenario'):
                 session.loss.set()
             elif path == '/api/playback' and session.playback:
                 session.playback.control(body.get('action'), body.get('speed'))
@@ -234,7 +246,8 @@ def main():
         server.session = Session(ROOT/'results')
         url = f'http://127.0.0.1:{server.server_port}/'
         print(f'Telemetry console at {url}', flush=True)
-        if not args.no_browser:
+        if not args.no_browser and (sys.platform in ('darwin', 'win32')
+                                    or os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')):
             webbrowser.open(url)
         try:
             server.serve_forever()

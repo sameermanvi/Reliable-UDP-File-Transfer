@@ -37,7 +37,7 @@ Run the console from the repository root. It builds the C binaries and opens the
 python3 scripts/run.py viz
 ```
 
-Choose transport flags and click **Run Live C Transfer**. The console captures actual
+Choose one of the six numbered scenarios. The default explain-mode playback supports play, pause and single-event stepping. Advanced manual controls and raw logs are collapsed below the three main panels. The console captures actual
 24-byte headers through a UDP relay, streams sender/receiver JSONL records, shows
 the sender ring snapshots, and reports independent SHA-256 verification. The relay
 adds 15 ms in each direction to make the transitions visible. **Drop next DATA**
@@ -130,7 +130,7 @@ It provides no authentication, encryption, persistent resume or TCP fairness.
 
 ## Measured failover
 
-![Lower-branch failure and application recovery](results/rubric-final/lower-recovery/link-failure-failover-adaptive-bitmap-off-loss0.0-fail1-flap1-lower-active-01/plots/timeline.svg)
+![Lower-branch failure and application recovery](results/presentation/timeline.svg)
 
 The retained Linux trial shows the sequence of controller and application events.
 Across the measured evaluation, 132 transfers matched their hashes and 48 static
