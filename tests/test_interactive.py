@@ -45,6 +45,22 @@ class InteractiveTests(unittest.TestCase):
                 menu.sdn(backend=([sys.executable,'scripts/run.py'],False))
             self.assertIn('25.000', output.getvalue())
 
+    def test_native_startup_failure_retries_once_in_docker(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(dir=ROOT/'results') as folder:
+            first, second = (Path(folder)/name for name in ('native', 'docker'))
+            first.mkdir()
+            second.mkdir()
+            (first/'metrics.csv').write_text('error\ncontroller listening: process exited\n')
+            (second/'metrics.csv').write_text(
+                'success,sha256_match,expectation_met,link_down_to_progress_seconds\nTrue,True,True,0.025\n')
+            with patch.object(menu, 'output_dir', side_effect=[first, second]), \
+                 patch.object(menu, 'run', side_effect=[subprocess.CalledProcessError(1, 'demo'), None]) as run, \
+                 patch.object(menu, 'docker_backend', return_value=(['docker'], True)), \
+                 patch.object(menu, 'open_plot'):
+                menu.sdn(backend=(['native'], False))
+            self.assertEqual([call.args[0][0] for call in run.call_args_list], ['native', 'docker'])
+
     def test_real_baseline(self):
         with contextlib.redirect_stdout(io.StringIO()) as output:
             menu.stage(1)

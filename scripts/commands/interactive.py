@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+import textwrap
 import threading
 import time
 import zlib
@@ -35,10 +36,14 @@ def run(command, **kwargs):
 def summary(lines, ok=True):
     color = ('\033[32m' if ok else '\033[31m') if sys.stdout.isatty() else ''
     reset = '\033[0m' if color else ''
-    print(color + "\n+-- EXAMINER SUMMARY — WHAT THIS PROVED --+")
-    for line in lines:
-        print("| " + str(line))
-    print("+----------------------------------------+" + reset, flush=True)
+    width = min(shutil.get_terminal_size().columns, 76)
+    inner = max(1, width - 4)
+    border = '+' + '-' * (inner + 2) + '+'
+    print('\n' + color + border)
+    for line in ['RESULT' if ok else 'STAGE FAILED', *lines]:
+        for part in textwrap.wrap(str(line), inner):
+            print(f'| {part:<{inner}} |')
+    print(border + reset, flush=True)
 
 
 def output_dir(name):
@@ -126,10 +131,11 @@ def localhost(directory, configurations, ports):
                                   transfer_id=ids.pop(), source_sha256=digest, output_sha256=output_hash)
             checksum = shutil.which('sha256sum')
             if checksum:
-                run([checksum, str(row['source']), str(row['target'])])
+                subprocess.run([checksum, row['source'].name, row['target'].name],
+                               cwd=directory, check=True)
             else:
-                print("SHA-256 " + digest + "  " + str(row['source']))
-                print("SHA-256 " + output_hash + "  " + str(row['target']))
+                print("SHA-256 " + digest + "  " + row['source'].name)
+                print("SHA-256 " + output_hash + "  " + row['target'].name)
         result = [r['metrics'] for r in rows]
         (directory/'summary.json').write_text(json.dumps(result, indent=2)+'\n')
         return result
@@ -142,11 +148,11 @@ def localhost(directory, configurations, ports):
             process.stdout.close()
 
 
-def comparison(rows):
+def comparison(rows, labels=("Baseline",)):
     columns = ('seconds', 'goodput_mbps', 'data_sends', 'retransmits', 'out_of_order', 'duplicates', 'sha256_match')
-    print("\nMetric                  " + " | ".join(f"Run {i+1:>2}" for i in range(len(rows))))
+    print("\n" + f"{'Metric':<17}" + ''.join(f'{label:>11}' for label in labels))
     for key in columns:
-        print(f"{key:<23} " + " | ".join(str(r.get(key, 'N/A')).rjust(12) for r in rows))
+        print(f"{key.replace('_', ' '):<17}" + ''.join(f"{str(row[key]):>11}" for row in rows))
 
 
 def network_backend():
@@ -156,9 +162,27 @@ def network_backend():
               subprocess.run([python, '-c', 'import mininet, os_ken'],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0)
     if native:
+        manager = Path(python).with_name('osken-manager')
+        if manager.is_file():
+            # Exercise the manager bootstrap, including Eventlet monkey-patching.
+            check = subprocess.run([str(manager), '--version'], cwd=ROOT,
+                                   capture_output=True, text=True)
+            native = check.returncode == 0
+            if not native:
+                print("Native controller startup failed. Checking Docker.")
+                diagnostic = (check.stderr or check.stdout).strip().splitlines()
+                if diagnostic:
+                    print(diagnostic[-1])
+        else:
+            native = False
+    if native:
         prefix = [] if os.geteuid()==0 else ['sudo']
         if subprocess.run([*prefix, 'ovs-vsctl', 'show'], stdout=subprocess.DEVNULL).returncode == 0:
             return [*prefix, python, 'scripts/run.py'], False
+    return docker_backend()
+
+
+def docker_backend():
     if shutil.which('docker'):
         docker = ['docker']
         if subprocess.run([*docker, 'info'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
@@ -196,7 +220,23 @@ def sdn(soft=False, backend=None):
     if soft:
         command += ['--scenario', 'soft-degradation', '--mib', '16']
     env = dict(os.environ, RUDP_MULTIPATH='1')
-    run(command, env=env)
+    try:
+        run(command, env=env)
+    except subprocess.CalledProcessError:
+        for log in directory.rglob('controller.log'):
+            print(f"Controller log: {log.relative_to(ROOT)}")
+            print('\n'.join(log.read_text(errors='replace').splitlines()[-8:]))
+        metrics = directory/'metrics.csv'
+        if not docker and metrics.is_file():
+            with metrics.open() as stream:
+                startup_failed = any('controller listening: process exited' in row.get('error', '')
+                                     for row in csv.DictReader(stream))
+            if startup_failed:
+                print("Native controller exited before listening. Trying Docker once.")
+                fallback = docker_backend()
+                if fallback:
+                    return sdn(soft=soft, backend=fallback)
+        raise
     with (directory/'metrics.csv').open() as stream:
         rows = list(csv.DictReader(stream))
     if not rows or any(r['success']!='True' or r['sha256_match']!='True' or r['expectation_met']!='True' for r in rows):
@@ -273,7 +313,7 @@ def stage(number):
             child.mkdir()
             (child/'sample.bin').write_bytes(sample)
             rows += localhost(child, [flags+['--drop-rate','0.10']], [9000])
-        comparison(rows)
+        comparison(rows, ("Basic", "Adaptive"))
         summary(["A/B uses independently sampled 10% DATA loss",
                  "Reported metrics are from the two executions above",
                  "Both CRC32 & SHA-256 MATCH"])
@@ -281,7 +321,7 @@ def stage(number):
         rows = localhost(output_dir('stage3'), [['--drop-rate','0.05','--sack','--adaptive-rto','--cc']]*2, [9000,9001])
         if rows[0]['transfer_id']==rows[1]['transfer_id'] or rows[0]['source_sha256']==rows[1]['source_sha256']:
             raise RuntimeError('Distinct session/source validation failed')
-        comparison(rows)
+        comparison(rows, ("Port 9000", "Port 9001"))
         summary([f"Flow 9000 | ID {rows[0]['transfer_id']} | {rows[0]['goodput_mbps']} Mb/s",
                  f"Flow 9001 | ID {rows[1]['transfer_id']} | {rows[1]['goodput_mbps']} Mb/s",
                  "Distinct payloads and sessions | Both SHA-256 MATCH"])
@@ -346,10 +386,16 @@ def main():
         if args.step:
             key = args.step
         else:
-            print("\n" + "="*80 + "\n  RELIABLE UDP + OPENFLOW 1.3 SDN — INTERACTIVE ASSESSMENT CONSOLE\n" + "="*80)
-            for index, title in enumerate(STAGES, 1):
-                print(f"  [{index}] Stage {index}: {title}")
-            print("  [a] Run Stages 1 -> 6 Sequentially\n  [q] Quit\n" + "="*80)
+            width = min(80, shutil.get_terminal_size().columns)
+            left = ['LOCAL TRANSPORT', '[1] Baseline transfer', '[2] Loss and SACK', '[3] Concurrent flows']
+            right = ['NETWORK AND RESULTS', '[4] Hard link failover', '[5] Probes and multipath', '[6] Performance results']
+            print('\n' + '=' * width + '\nReliable UDP / OpenFlow demo\n')
+            if width >= 54:
+                for first, second in zip(left, right):
+                    print(f'{first:<{width // 2}}{second}')
+            else:
+                print('\n'.join(left) + '\n\n' + '\n'.join(right))
+            print('\n[7] Test suite    [8] Dashboard\n[a] Run 1–6       [q] Quit\n' + '=' * width)
             print("Select stage [1-8, a, q]: ", end='', flush=True)
             try:
                 key = read_key()
@@ -363,6 +409,7 @@ def main():
             continue
         try:
             for number in range(1,7) if key=='a' else [int(key)]:
+                print(f"\nStage {number} of 8\n" + textwrap.fill(STAGES[number-1], shutil.get_terminal_size().columns) + "\n")
                 stage(number)
         except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as exc:
             summary(["Stage failed", str(exc), "See actual endpoint/command output above"], ok=False)
