@@ -295,6 +295,19 @@ static int send_file(int fd, FILE *file, const struct sockaddr_in *server,
         uint32_t previous_base = base;
         while (base < next && slots[base % WINDOW_SIZE].acknowledged)
             ++base;
+        if (progress && getenv("RUDP_VIZ_RING")) {
+            fprintf(progress, "{\"event\":\"ring_snapshot\",\"monotonic_ns\":%" PRIu64 ",\"base\":%u,\"slots\":[", monotonic_ns(), base);
+            for (uint32_t i = 0; i < WINDOW_SIZE; ++i) {
+                uint32_t seq = base + i;
+                struct send_slot *entry = &slots[seq % WINDOW_SIZE];
+                fprintf(progress, "%s{\"sequence\":%u,\"state\":\"%s\",\"gap_reports\":%u}",
+                        i ? "," : "", seq,
+                        seq >= next ? "UNSENT" : entry->acknowledged ? "SACKED_OO_BUFFERED" : entry->fast_sent ? "FAST_RETRANSMIT" : "IN_FLIGHT",
+                        seq >= next ? 0 : entry->gap_reports);
+            }
+            fprintf(progress, "]}\n");
+            fflush(progress);
+        }
         if (base != previous_base) progress_event(progress, "window_advance", id, base, base, cwnd, "contiguous_ack");
         if (progress && base != previous_base) {
             uint64_t bytes = (uint64_t)base * PAYLOAD_SIZE;

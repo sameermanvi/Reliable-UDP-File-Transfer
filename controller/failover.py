@@ -162,6 +162,9 @@ class FailoverController(AppBase):
                     )
 
                     self.next_probe_ns[key] = now + interval_ns
+                    self._event("probe_schedule", path=path, direction=direction,
+                                interval_seconds=interval_ns / 1_000_000_000)
+
 
             # Wake at the next probe deadline or pending-probe timeout.
             # Cap sleep at 250 ms so health and controller state are refreshed.
@@ -454,6 +457,11 @@ class FailoverController(AppBase):
         )
 
         rules = forwarding_rules(path)
+        self._event("flow_rules", path=path,
+                    rules={str(dpid): [dict(in_port=r.in_port, eth_type=r.eth_type,
+                                           out_port=r.out_port) for r in entries]
+                           for dpid, entries in rules.items()})
+
 
         # Install the selected route and remove stale multipath rules.
         for dpid, dp in sorted(self.datapaths.items()):

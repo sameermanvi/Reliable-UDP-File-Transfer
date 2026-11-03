@@ -1,5 +1,26 @@
 # Reliable UDP file transfer with SDN failover
 
+## Live telemetry console
+
+Run the console from the repository root. It builds the C binaries and opens the browser.
+
+```sh
+python3 scripts/run.py viz
+```
+
+Choose transport flags and click **Run Live C Transfer**. The console captures actual
+24-byte headers through a UDP relay, streams sender/receiver JSONL records, shows
+the sender ring snapshots, and reports independent SHA-256 verification. The relay
+adds 15 ms in each direction to make the transitions visible. **Drop next DATA**
+discards one observed DATA datagram.
+
+Load a trial from the selector or enter a directory under results/ and select
+**Tail active trial** for a running Mininet experiment. Replay preserves recorded
+monotonic timing with play, pause, single-step and speed controls. Older recordings
+supply only the fields they retained. The localhost run supplies transport data,
+while Mininet recordings supply controller events.
+
+
 Transfer a binary file over UDP while an SDN controller routes around a failed
 or degraded network path. The C11 transport implements Selective Repeat, SACK, adaptive RTO and congestion control. The Python OpenFlow 1.3 controller schedules adaptive probes, reroutes around failures and supports weighted multipath DATA.
 

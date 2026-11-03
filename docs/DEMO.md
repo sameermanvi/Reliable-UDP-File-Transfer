@@ -1,5 +1,26 @@
 # Live demonstration
 
+## Live telemetry console
+
+Run the console from the repository root. It builds the C binaries and opens the browser.
+
+```sh
+python3 scripts/run.py viz
+```
+
+Choose transport flags and click **Run Live C Transfer**. The console captures actual
+24-byte headers through a UDP relay, streams sender/receiver JSONL records, shows
+the sender ring snapshots, and reports independent SHA-256 verification. The relay
+adds 15 ms in each direction to make the transitions visible. **Drop next DATA**
+discards one observed DATA datagram.
+
+Load a trial from the selector or enter a directory under results/ and select
+**Tail active trial** for a running Mininet experiment. Replay preserves recorded
+monotonic timing with play, pause, single-step and speed controls. Older recordings
+supply only the fields they retained. The localhost run supplies transport data,
+while Mininet recordings supply controller events.
+
+
 Run the localhost examples from the repository root in a Linux shell. Each receiver exits after one upload.
 
 ## Transfer under loss

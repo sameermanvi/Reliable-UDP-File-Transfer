@@ -208,3 +208,17 @@ from the repeated matrix collected with fixed probe spacing.
 | Hard failures override health | A live but unhealthy route is preferable to a broken one | If neither branch works, retries cannot manufacture connectivity |
 | Independent SHA-256 and atomic rename | Strong experimental correctness evidence; failed transfer preserves destination | CRC-32 itself is not authentication; rename is not power-loss durability |
 | CC off in the main matrix | Isolate routing, RTO and ACK format effects | CWND behavior is verified and separately ablated, not a fairness claim |
+
+## Telemetry console
+
+The viz command serves a loopback-only HTTP interface using the Python standard
+library. A UDP relay captures actual serialized headers and adds a fixed 15 ms
+delay per direction. An opt-in RUDP_VIZ_RING trace records the sender's real
+window slots and gap counters. Normal protocol execution keeps that trace disabled.
+Independent SHA-256 compares source and finalized output after both endpoints exit.
+
+The SSE journal lives in a temporary file. Browser reconnects resume using event
+IDs, while slow readers can catch up independently of UDP. A session owns its
+subprocesses and cleans up on stop. Recorded trials merge sender, receiver and
+controller JSONL events by monotonic timestamp. Header captures and ring snapshots
+require instrumentation present at recording time.

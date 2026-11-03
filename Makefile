@@ -16,3 +16,4 @@ test: all
 	python3 tests/test_controller.py
 	python3 tests/test_metrics.py
 	python3 tests/test_local.py
+	python3 tests/test_visualize.py

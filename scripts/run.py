@@ -7,7 +7,7 @@ import sys
 
 COMMANDS = {
     "demo": "demo", "evaluate": "evaluate", "benchmark": "benchmark_reliability",
-    "experiment": "run_experiments", "plot": "plot_metrics", "timeline": "plot_timeline",
+    "viz": "visualize", "experiment": "run_experiments", "plot": "plot_metrics", "timeline": "plot_timeline",
 }
 
 def main():
