@@ -366,3 +366,6 @@ thead {
     margin: 0;
   }
 }
+
+#event-focus { padding: 0.6rem 1rem; color: #c9d1d9; font-weight: bold; }
+.slot.current-slot { outline: 2px solid #fff; outline-offset: -2px; }

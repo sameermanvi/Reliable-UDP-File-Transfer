@@ -92,7 +92,10 @@ async function request(path, body = {}) {
 function error(exc) {
   $("notice").textContent = exc.message;
 }
+let focusSequence;
 function reset(event) {
+  focusSequence = undefined;
+  $("event-focus").textContent = "Awaiting first event";
   backendDone = false;
   queue = [];
   raw = [];
@@ -227,6 +230,7 @@ function renderRing() {
       const slot = ring[i],
         div = document.createElement("div");
       div.className = "slot " + (slot?.state || "");
+      if (focusSequence === base + i) div.classList.add("current-slot");
       const num = document.createElement("b");
       num.textContent = slot?.sequence ?? base + i;
       div.append(num);
@@ -450,6 +454,13 @@ function compare() {
 function present(e) {
   view = { ...blank(), ...(e.view || view) };
   const seq = e.sequence;
+  focusSequence = seq ?? (e.event === "gap_detected" ? e.base : undefined);
+  const focus = [e.source, String(e.event || "record").replaceAll("_", " ")];
+  if (focusSequence != null) focus.push("sequence #" + focusSequence);
+  if (e.path) focus.push("path " + e.path);
+  if (e.monotonic_ns && origin !== null)
+    focus.push("trace time " + ((e.monotonic_ns - origin) / 1e9).toFixed(3) + " s");
+  $("event-focus").textContent = focus.filter(Boolean).join("  ·  ");
   if (e.event === "variant_start") {
     ring = [];
     base = 0;
@@ -760,6 +771,7 @@ setInterval(() => {
   const important = [
     "dropped_gap",
     "fast_retry",
+    "out_of_order",
     "link_down",
     "route_readyupper",
     "route_readylower",
@@ -767,7 +779,7 @@ setInterval(() => {
   ].includes(milestone);
   const hold = slow && important && !seenMilestones.has(milestone);
   if (hold) seenMilestones.add(milestone);
-  nextAt = performance.now() + (hold ? 1200 : slow ? 100 : 30);
+  nextAt = performance.now() + (hold ? 4000 : slow ? 1000 : 30);
 }, 20);
 setInterval(renderRaw, 500);
 $("filter").oninput = renderRaw;
