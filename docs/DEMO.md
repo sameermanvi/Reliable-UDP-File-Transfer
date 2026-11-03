@@ -29,28 +29,29 @@ and static failures take longer than a ten-minute presentation, so rehearse and
 select the stages needed for the assessment.
 
 
-## Live telemetry console
-
-Run the console from the repository root. It builds the C binaries and opens the browser.
+## Guided browser demonstration
 
 ```sh
 python3 scripts/run.py viz
 ```
 
-Choose transport flags and click **Run Live C Transfer**. The console captures actual
-24-byte headers through a UDP relay, streams sender/receiver JSONL records, shows
-the sender ring snapshots, and reports independent SHA-256 verification. The relay
-adds 15 ms in each direction to make the transitions visible. **Drop next DATA**
-discards one observed DATA datagram.
+Choose a numbered preset. Scenarios 1–3 execute real 1 MiB C transfers with the
+displayed transport settings. Scenario 4 runs the no-SACK and SACK variants on
+identical bytes and compares their measured outcomes. Scenarios 5–6 automatically
+load verified upper-path link-cut recordings, preferring live-failover/live-static
+directories when available and falling back to the retained evaluation.
 
-Load a trial from the selector or enter a directory under results/ and select
-**Tail active trial** for a running Mininet experiment. Replay preserves recorded
-monotonic timing with play, pause, single-step and speed controls. Older recordings
-supply only the fields they retained. The localhost run supplies transport data,
-while Mininet recordings supply controller events.
+Play, pause and single-event stepping affect visual presentation. The backend
+continues collecting the real run into an SSE journal. Slow Explain Mode samples
+key transitions at ten events per second and pauses briefly on major milestones.
+The counters follow the displayed event, and measured backend timestamps remain
+independent of presentation delays. Duplicate DATA arrivals are reported separately
+from final file integrity.
 
+Raw logs, wire bytes, manual transport settings and active-trial tail controls are
+inside the collapsed advanced drawer. Pause a red gap, amber buffered chunk or
+route change and read the scenario's three talking points.
 
-Run the localhost examples from the repository root in a Linux shell. Each receiver exits after one upload.
 
 ## Transfer under loss
 
@@ -93,3 +94,25 @@ find "$run_dir" -name timeline.svg
 ```
 
 Open the failover trial’s timeline.svg in a browser. Point to link down, alternate route ready and the first ACK that advances the contiguous file prefix. The output hash must match. In static mode the route stays on the failed branch and the transfer fails as expected. Prepare the static run before the presentation to avoid waiting for retry exhaustion.
+
+## Four-person ten-minute presentation
+
+Use this as an ownership and rehearsal plan. Attribute implementation work to its actual authors.
+
+| Presenter | Time | Scenario | What to say and point to |
+| --- | --- | --- | --- |
+| 1 — Sender and reliability | 0:00–2:00 | 1, then 2 | “UDP gives us datagrams. Our sender adds sequence numbers, a bounded 32-slot window and retransmission. A missing ACK holds the contiguous base.” Point to a missing slot and the timer. |
+| 2 — Receiver and integrity | 2:00–4:00 | 3 | “The receiver saves later chunks instead of discarding them. SACK reports which chunks are already buffered. Once the hole is repaired, the contiguous prefix advances. CRC32 checks the file before finalization and independent SHA-256 verifies it.” Point to amber slots, the bitmap and MATCH. |
+| 3 — SDN control | 4:00–7:00 | 5 | “The application cannot repair a broken path. OpenFlow port status detects the hard cut. The controller installs the lower branch and waits for barriers. Separate bidirectional probes detect soft degradation and assess the backup.” Pause on LINK DOWN and ROUTE READY. |
+| 4 — Integration and evidence | 7:00–9:00 | 6, then 4 | “A static route cannot deliver through a permanent cut. The recorded matrix contains 132 hash-matched transfers and 48 expected static failures. This A/B pair is a separate live comparison.” Point to the failure outcome and measured comparison bars. |
+| All — Questions | 9:00–10:00 | Pause | Each person answers for the module they reviewed. Every member should be able to trace START → DATA/ACK → FIN and link down → route ready → useful ACK. |
+
+Prepare the recorded traces and A/B results before the assessment so selection and
+playback fit the time limit. Scenario 4 runs actual transfers and can take longer
+under random loss. Nobody should promise a particular speedup or recovery time.
+
+For the graphs, explain the labelled measurement interval before quoting a number.
+The recovery title gives link-down to the first useful ACK after route readiness.
+The separate timestamp rows resolve markers that overlap at full-run scale.
+The congestion trace is the project's UDP congestion window. It does not measure
+TCP fairness or establish the behavior of a TCP implementation.

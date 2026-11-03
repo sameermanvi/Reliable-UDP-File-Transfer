@@ -66,6 +66,10 @@ def run_replay(trial, follow, emit, stop_event, playback):
     offsets = {}
     previous = None
     link_down = route_ready = None
+    outage_file = trial/'outages-0.json'
+    outages = json.loads(outage_file.read_text()) if outage_file.exists() else []
+    measured_acks = {o.get('useful_ack_monotonic_ns'): o for o in outages
+                     if o.get('recovery_status') == 'recovered'}
     while not stop_event.is_set():
         if follow and not (trial/'controller.jsonl').exists():
             candidates = sorted(trial.rglob('controller.jsonl'))
@@ -92,12 +96,16 @@ def run_replay(trial, follow, emit, stop_event, playback):
             if not playback.wait(0 if follow else gap, stop_event):
                 return
             emit(record)
-            if record.get('event') == 'link_down':
+            if record.get('event') == 'link_down' and link_down is None:
                 link_down, route_ready = stamp, None
             elif record.get('event') == 'route_ready' and link_down is not None and stamp > link_down:
                 route_ready = stamp
             elif (record.get('event') == 'ack_progress' and route_ready is not None
                   and stamp > route_ready):
+                measured = measured_acks.get(stamp)
+                if measured:
+                    link_down = measured['link_down_monotonic_ns']
+                    route_ready = measured['route_ready_monotonic_ns']
                 emit(dict(event='recovery', source='replay', monotonic_ns=stamp,
                           link_down_to_ack_ms=(stamp-link_down)/1e6,
                           route_to_ack_ms=(stamp-route_ready)/1e6))

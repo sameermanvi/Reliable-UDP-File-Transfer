@@ -86,7 +86,19 @@ static int send_data(int fd, const struct packet *packet,
                      int multipath, unsigned int upper_weight,
                      unsigned int lower_weight)
 {
-    if (drop_rate > 0 && rand() / (RAND_MAX + 1.0) < drop_rate) return 0;
+    if (drop_rate > 0 && rand() / (RAND_MAX + 1.0) < drop_rate) {
+        const char *path = getenv("RUDP_VIZ_DROP_LOG");
+        if (path) {
+            FILE *trace = fopen(path, "a");
+            if (trace) {
+                fprintf(trace, "{\"event\":\"dropped_gap\",\"monotonic_ns\":%" PRIu64
+                        ",\"sequence\":%u,\"reason\":\"simulated_data_loss\"}\n",
+                        monotonic_ns(), packet->sequence);
+                fclose(trace);
+            }
+        }
+        return 0;
+    }
 
     if (!multipath)
         return send_packet(fd, packet, peer);

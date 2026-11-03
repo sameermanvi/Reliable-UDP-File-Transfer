@@ -46,6 +46,34 @@ class VisualizeTests(unittest.TestCase):
                 thread.join()
                 server.session.journal.close()
 
+    def test_guided_presets_select_real_static_and_failover_evidence(self):
+        from viz_scenarios import options, select_trial
+        self.assertEqual(options(1)['drop_rate'], 0)
+        self.assertFalse(options(2)['sack'])
+        self.assertFalse(options(2)['adaptive_rto'])
+        self.assertTrue(options(3)['sack'])
+        for number in (5,6):
+            trial, row = select_trial(ROOT/'results', number)
+            self.assertTrue((trial/'controller.jsonl').exists())
+            self.assertTrue(row['expectation_met'])
+            self.assertEqual(row['success'], number==5)
+
+    def test_recovery_plot_labels_match_retained_measurement(self):
+        import importlib.util
+        path = ROOT/'scripts/commands/plot_timeline.py'
+        spec = importlib.util.spec_from_file_location('plot_timeline', path)
+        plot = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plot)
+        from viz_scenarios import select_trial
+        trial, row = select_trial(ROOT/'results', 5)
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)/'timeline.svg'
+            plot.timeline(trial/'progress-0.jsonl', trial/'controller.jsonl', output)
+            text = output.read_text()
+            expected = f"{row['link_down_to_progress_seconds']*1000:.3f} ms"
+            self.assertIn(expected, text)
+            self.assertIn('Elapsed monotonic time (s)', text)
+
     def test_replay_and_path_boundary(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

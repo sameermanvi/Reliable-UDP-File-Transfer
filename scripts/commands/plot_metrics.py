@@ -48,7 +48,11 @@ def make_plots(summaries, output):
 
     plt.rcParams.update({"font.size": 10, "axes.spines.top": False,
                          "axes.spines.right": False, "svg.fonttype": "none"})
-    labels = [f"{item['scenario']} | {item['mode']}" for item in summaries]
+    labels = []
+    for item in summaries:
+        parts = item['mode'].split('/')
+        labels.append(item['scenario'] + ' | ' + ' / '.join(parts[:4]) + '\n'
+                      + ' · '.join(parts[4:8]) + '\n' + ' · '.join(parts[8:]))
     colors = ["#2563eb" if item["mode"].startswith("failover") else "#64748b" for item in summaries]
     for metric, xlabel, title in (
         ("goodput_mbps", "Payload goodput (Mb/s)", "Goodput of successful transfers"),
@@ -57,7 +61,7 @@ def make_plots(summaries, output):
         ("progress_recovery_seconds", "Seconds after failure request", "Application recovery from injection"),
         ("link_down_to_progress_seconds", "Seconds after controller link_down", "Application recovery after observed failure"),
     ):
-        fig, ax = plt.subplots(figsize=(14, max(4, len(summaries) * .35)))
+        fig, ax = plt.subplots(figsize=(16, max(5, len(summaries) * .8)))
         for index, item in enumerate(summaries):
             measurement = item[metric]
             if measurement:
@@ -65,19 +69,22 @@ def make_plots(summaries, output):
                 ax.barh(index, mean, color=colors[index], height=.65)
                 ax.errorbar(mean, index, xerr=[[mean-measurement["minimum"]],
                             [measurement["maximum"]-mean]], color="#111827", capsize=3, fmt="none")
+                ax.annotate(f" {mean:.3f} (n={measurement['count']})",
+                            (measurement['maximum'], index), xytext=(5, 0),
+                            textcoords="offset points", va="center", fontsize=8)
             else:
                 ax.text(.01, index, "N/A", transform=ax.get_yaxis_transform(), va="center")
-        ax.set_yticks(range(len(labels)), labels, fontsize=7)
+        ax.set_yticks(range(len(labels)), labels, fontsize=8)
         ax.invert_yaxis(); ax.set_xlabel(xlabel)
         ax.set_title(title + " (mean and min–max; N/A is not zero)")
-        ax.set_xlim(left=0); ax.grid(axis="x", alpha=.2); ax.set_axisbelow(True)
+        ax.set_xlim(left=0); ax.margins(x=.25); ax.grid(axis="x", alpha=.2); ax.set_axisbelow(True)
         fig.tight_layout(); fig.savefig(output / f"{metric}.svg"); plt.close(fig)
-    fig, ax = plt.subplots(figsize=(14, max(4, len(summaries) * .35)))
+    fig, ax = plt.subplots(figsize=(16, max(5, len(summaries) * .8)))
     rates = [100 * item["successful"] / item["observations"] for item in summaries]
     ax.barh(range(len(labels)), rates, color=colors)
     for index, item in enumerate(summaries):
         ax.text(rates[index]+1, index, f"{item['successful']}/{item['observations']}", va="center")
-    ax.set_yticks(range(len(labels)), labels, fontsize=7); ax.invert_yaxis()
+    ax.set_yticks(range(len(labels)), labels, fontsize=8); ax.invert_yaxis()
     ax.set_xlim(0, 115); ax.set_xlabel("Successful flows (%)")
     ax.set_title("Completion across all trials, including failed runs")
     fig.tight_layout(); fig.savefig(output / "completion.svg"); plt.close(fig)
