@@ -1,10 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1120" viewBox="0 0 1200 1120">
 <rect width="100%" height="100%" fill="white"/>
 <style>text{font:12px sans-serif;fill:#1e293b} .title{font-size:18px;font-weight:bold}</style>
-<text x="20" y="28" class="title">Reliable UDP recovery across an OpenFlow route change</text>
+<text x="20" y="28" class="title">Transfer timeline · link-failure-failover-adaptive-bitmap-off-loss0.0-fail1-flap1-lower-active-01</text>
 <text x="20" y="52">Shared monotonic clock · application measurements · time in seconds from first recorded event</text>
 <text x="20" y="82" class="title">Observed recovery 42.265 ms</text>
 <text x="20" y="106">Link down → barrier-confirmed route 1.227 ms · route → useful ACK 41.038 ms</text>
+<text x="540" y="131" class="title">Recovery interval, enlarged</text>
+<path d="M540,153 H554.51" stroke="#15803d" stroke-width="9"/>
+<path d="M554.51,153 H1040" stroke="#0369a1" stroke-width="9"/>
+<text x="540" y="179">Green = installing the route · blue = waiting for useful ACK progress</text>
 <text x="20" y="132" style="fill:#dc2626">1  LINK DOWN  t = 1.331889 s</text>
 <text x="20" y="154" style="fill:#15803d">2  ROUTE READY  t = 1.333116 s</text>
 <text x="20" y="176" style="fill:#0369a1">3  USEFUL ACK  t = 1.374154 s</text>
@@ -123,6 +127,6 @@
 <text x="925" y="968" text-anchor="middle">11.42</text>
 <text x="1125" y="968" text-anchor="middle">14.28</text>
 <text x="1125" y="990" text-anchor="end">Elapsed monotonic time (s)</text>
-<text x="20" y="1060">Markers may share an x-position at full-run scale; the timestamp rows above retain exact ordering and intervals.</text>
+<text x="20" y="1060">An upward ACK line means more of the file is confirmed. A flat stretch means the contiguous prefix has stopped advancing.</text>
 <text x="20" y="1084">Blue lines: measured application state · retry dots: amber fast gap / red timeout · congestion window belongs to this UDP implementation.</text>
 </svg>

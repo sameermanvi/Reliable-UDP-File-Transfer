@@ -17,11 +17,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def run_live(options, emit, stop_event, loss_control, payload=None):
     def publish(event, **fields):
-        emit(dict(event=event, source='relay', monotonic_ns=time.monotonic_ns(), **fields))
+        emit(dict(event=event, source='relay', monotonic_ns=time.clock_gettime_ns(time.CLOCK_MONOTONIC), **fields))
     with tempfile.TemporaryDirectory(prefix='rudp-viz-') as folder:
         folder = Path(folder)
         source, output = folder/'input.bin', folder/'output.bin'
-        source.write_bytes(payload if payload is not None else os.urandom(1024*1024))
+        source.write_bytes(payload if payload is not None else os.urandom(options.get("packets", 32)*1024))
+        scheduled = set(options.get("drop_sequences", ()))
         reserve = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         reserve.bind(('127.0.0.1', 0))
         port = reserve.getsockname()[1]
@@ -45,7 +46,7 @@ def run_live(options, emit, stop_event, loss_control, payload=None):
                                '--sack' if options['sack'] else '--no-sack',
                                '--adaptive-rto' if options['adaptive_rto'] else '--fixed-rto',
                                '--cc' if options['cc'] else '--no-cc',
-                               '--drop-rate', str(options['drop_rate'])]
+                               '--drop-rate', str(0 if scheduled else options['drop_rate'])]
                 processes.append(subprocess.Popen(command, env=env, stdout=handles[-1], stderr=subprocess.STDOUT))
                 if role == 'receiver':
                     deadline = time.monotonic()+3
@@ -93,6 +94,10 @@ def run_live(options, emit, stop_event, loss_control, payload=None):
                         if kind == 10 and len(wire) >= 32:
                             fields['sack_base'], fields['sack_mask'] = struct.unpack('!II', wire[24:32])
                         publish('frame', **fields)
+                        if kind == 3 and sequence in scheduled:
+                            scheduled.remove(sequence)
+                            publish('dropped_gap', sequence=sequence, reason='guided_first_attempt')
+                            continue
                         if kind == 3 and loss_control.is_set():
                             loss_control.clear()
                             publish('dropped_gap', sequence=sequence, reason='operator_injection')

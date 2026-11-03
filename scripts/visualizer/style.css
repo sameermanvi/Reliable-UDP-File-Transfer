@@ -367,5 +367,91 @@ thead {
   }
 }
 
-#event-focus { padding: 0.6rem 1rem; color: #c9d1d9; font-weight: bold; }
-.slot.current-slot { outline: 2px solid #fff; outline-offset: -2px; }
+#event-focus {
+  padding: 0.6rem 1rem;
+  color: #c9d1d9;
+  font-weight: bold;
+}
+.slot.current-slot {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+#ring {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+}
+.slot {
+  background: #1e2631;
+  overflow-wrap: anywhere;
+  padding: 0.4em;
+}
+.board-FLIGHT {
+  background: #1f6feb;
+  color: white;
+}
+.board-DROPPED {
+  background: #da3633;
+  color: white;
+}
+.board-BUFFERED {
+  background: #d29922;
+  color: #101010;
+}
+.board-RETRY {
+  background: #f0883e;
+  color: #101010;
+}
+.board-ACKED {
+  background: #238636;
+  color: white;
+}
+#story {
+  max-height: 14rem;
+  overflow: auto;
+}
+#story button {
+  text-align: left;
+}
+#lane {
+  padding: 0.7rem;
+  border: 1px solid #30363d;
+}
+@media (max-width: 800px) {
+  #ring {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+#lane {
+  text-align: center;
+  overflow: hidden;
+}
+#lane span {
+  display: inline-block;
+}
+.board-DROPPED {
+  animation: loss-pulse 0.6s alternate infinite;
+}
+@keyframes loss-pulse {
+  to {
+    box-shadow: inset 0 0 0 3px #fff;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-DROPPED {
+    animation: none;
+  }
+}
+.story-dropped_gap button,
+.story-link_down button {
+  border-left: 4px solid #da3633;
+}
+.story-retransmit button {
+  border-left: 4px solid #f0883e;
+}
+.story-frame button {
+  border-left: 4px solid #d29922;
+}
+.story-ack_progress button,
+.story-verification button,
+.story-recovery button {
+  border-left: 4px solid #238636;
+}

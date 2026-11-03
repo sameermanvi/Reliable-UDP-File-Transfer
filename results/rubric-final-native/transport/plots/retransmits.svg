@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="730" viewBox="0 0 1100 730">
 <rect width="100%" height="100%" fill="white"/>
 <style>text{font:12px sans-serif;fill:#1e293b} .title{font-size:18px;font-weight:bold}</style>
-<text x="20" y="28" class="title">DATA retransmissions (mean; range whiskers)</text>
+<text x="20" y="28" class="title">Extra DATA sends</text>
+<text x="20" y="49">Lower means less retry overhead. Bar = mean across completed transfers. Black line = observed range.</text>
 <text x="15" y="77">5ms one-way | local-delay | fixed / plain / CC off</text>
 <rect x="580" y="65" width="0.00" height="18" fill="#2563eb"/>
 <path d="M580.00,74 H580.00" stroke="#111827" stroke-width="2"/>
@@ -61,7 +62,7 @@
 <text x="15" y="525">130ms one-way | local-delay | adaptive / bitmap / CC on</text>
 <rect x="580" y="513" width="75.83" height="18" fill="#2563eb"/>
 <path d="M620.83,522 H673.33" stroke="#111827" stroke-width="2"/>
-<text x="665.83" y="526">13.000</text>
+<text x="683.33" y="526">13.000</text>
 <text x="15" y="557">130ms one-way | local-faults | fixed / plain / CC off</text>
 <rect x="580" y="545" width="420.00" height="18" fill="#2563eb"/>
 <path d="M1000.00,554 H1000.00" stroke="#111827" stroke-width="2"/>
@@ -73,7 +74,7 @@
 <text x="15" y="621">130ms one-way | local-faults | fixed / bitmap / CC off</text>
 <rect x="580" y="609" width="383.06" height="18" fill="#2563eb"/>
 <path d="M959.17,618 H965.00" stroke="#111827" stroke-width="2"/>
-<text x="973.06" y="622">65.667</text>
+<text x="975.00" y="622">65.667</text>
 <text x="15" y="653">130ms one-way | local-faults | adaptive / bitmap / CC off</text>
 <rect x="580" y="641" width="192.50" height="18" fill="#2563eb"/>
 <path d="M772.50,650 H772.50" stroke="#111827" stroke-width="2"/>
@@ -81,5 +82,5 @@
 <text x="15" y="685">130ms one-way | local-faults | adaptive / bitmap / CC on</text>
 <rect x="580" y="673" width="52.50" height="18" fill="#2563eb"/>
 <path d="M620.83,682 H650.00" stroke="#111827" stroke-width="2"/>
-<text x="642.50" y="686">9.000</text>
+<text x="660.00" y="686">9.000</text>
 </svg>

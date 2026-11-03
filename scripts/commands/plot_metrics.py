@@ -47,12 +47,25 @@ def make_plots(summaries, output):
     import matplotlib.pyplot as plt
 
     plt.rcParams.update({"font.size": 10, "axes.spines.top": False,
-                         "axes.spines.right": False, "svg.fonttype": "none"})
-    labels = []
-    for item in summaries:
-        parts = item['mode'].split('/')
-        labels.append(item['scenario'] + ' | ' + ' / '.join(parts[:4]) + '\n'
-                      + ' · '.join(parts[4:8]) + '\n' + ' · '.join(parts[8:]))
+                         "axes.spines.right": False, "svg.fonttype": "none", "svg.hashsalt": "rudp"})
+    summaries = sorted(summaries, key=lambda item: (item["scenario"], item["mode"]))
+    modes = [item["mode"].split("/") for item in summaries]
+    varying = [i for i, values in enumerate(zip(*modes)) if len(set(values)) > 1]
+    labels = [item["scenario"] + "   " + " · ".join(parts[i] for i in varying)
+              for item, parts in zip(summaries, modes)]
+    common = " · ".join(value for i, value in enumerate(modes[0]) if i not in varying)
+    notes = {
+        "goodput_mbps": "Higher means more useful file data delivered per second.",
+        "retransmits": "Lower means fewer extra DATA sends to complete the file.",
+        "retransmit_fraction": "Lower means fewer send attempts went to retransmission.",
+        "progress_recovery_seconds": "From the failure request until useful ACK progress resumes. Shorter is faster.",
+        "link_down_to_progress_seconds": "From controller detection to the first advancing ACK after route readiness.",
+    }
+    def heading(ax, title, explanation):
+        ax.set_title(title, loc="left", fontsize=16, fontweight="bold", pad=48)
+        ax.text(0, 1, explanation + "\nShared settings · " + common,
+                transform=ax.transAxes, va="bottom", fontsize=9, linespacing=1.5)
+
     colors = ["#2563eb" if item["mode"].startswith("failover") else "#64748b" for item in summaries]
     for metric, xlabel, title in (
         ("goodput_mbps", "Payload goodput (Mb/s)", "Goodput of successful transfers"),
@@ -61,12 +74,12 @@ def make_plots(summaries, output):
         ("progress_recovery_seconds", "Seconds after failure request", "Application recovery from injection"),
         ("link_down_to_progress_seconds", "Seconds after controller link_down", "Application recovery after observed failure"),
     ):
-        fig, ax = plt.subplots(figsize=(16, max(5, len(summaries) * .8)))
+        fig, ax = plt.subplots(figsize=(16, max(3.6, len(summaries) * .36 + 2)))
         for index, item in enumerate(summaries):
             measurement = item[metric]
             if measurement:
                 mean = measurement["mean"]
-                ax.barh(index, mean, color=colors[index], height=.65)
+                ax.plot(mean, index, "o", color=colors[index], markersize=6, zorder=3)
                 ax.errorbar(mean, index, xerr=[[mean-measurement["minimum"]],
                             [measurement["maximum"]-mean]], color="#111827", capsize=3, fmt="none")
                 ax.annotate(f" {mean:.3f} (n={measurement['count']})",
@@ -76,18 +89,18 @@ def make_plots(summaries, output):
                 ax.text(.01, index, "N/A", transform=ax.get_yaxis_transform(), va="center")
         ax.set_yticks(range(len(labels)), labels, fontsize=8)
         ax.invert_yaxis(); ax.set_xlabel(xlabel)
-        ax.set_title(title + " (mean and min–max; N/A is not zero)")
+        heading(ax, title, notes[metric] + "  Dot = mean · line = observed range · N/A = no measurement.")
         ax.set_xlim(left=0); ax.margins(x=.25); ax.grid(axis="x", alpha=.2); ax.set_axisbelow(True)
-        fig.tight_layout(); fig.savefig(output / f"{metric}.svg"); plt.close(fig)
-    fig, ax = plt.subplots(figsize=(16, max(5, len(summaries) * .8)))
+        fig.tight_layout(); fig.savefig(output / f"{metric}.svg", bbox_inches="tight", pad_inches=.24, metadata={"Date": None}); plt.close(fig)
+    fig, ax = plt.subplots(figsize=(16, max(3.6, len(summaries) * .36 + 2)))
     rates = [100 * item["successful"] / item["observations"] for item in summaries]
     ax.barh(range(len(labels)), rates, color=colors)
     for index, item in enumerate(summaries):
         ax.text(rates[index]+1, index, f"{item['successful']}/{item['observations']}", va="center")
     ax.set_yticks(range(len(labels)), labels, fontsize=8); ax.invert_yaxis()
     ax.set_xlim(0, 115); ax.set_xlabel("Successful flows (%)")
-    ax.set_title("Completion across all trials, including failed runs")
-    fig.tight_layout(); fig.savefig(output / "completion.svg"); plt.close(fig)
+    heading(ax, "File transfer completion", "Labels show completed / attempted flows. Static routes can fail as expected after a permanent cut.")
+    fig.tight_layout(); fig.savefig(output / "completion.svg", bbox_inches="tight", pad_inches=.24, metadata={"Date": None}); plt.close(fig)
 
 
 def main():
