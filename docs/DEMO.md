@@ -43,7 +43,8 @@ directories when available and falling back to the retained evaluation.
 
 Play, pause and single-event stepping affect visual presentation. The backend
 continues collecting the real run into an SSE journal. Slow Explain Mode samples
-key transitions at ten events per second and pauses briefly on major milestones.
+key transitions at one event per second and holds the first occurrence of each major milestone for four seconds.
+The event strip identifies the source and recorded time when available. A white outline identifies the current sequence inside the window.
 The counters follow the displayed event, and measured backend timestamps remain
 independent of presentation delays. Duplicate DATA arrivals are reported separately
 from final file integrity.
