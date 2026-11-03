@@ -116,7 +116,7 @@ failback. Initial branch defaults to upper; RUDP_INITIAL_PATH=lower permits the
 reverse-direction recovery check.
 
 `controller/probes.py` tracks independent Ethernet probes in both directions on
-both branches, including the idle branch. Every 250 ms the controller sends a
+both branches, including the idle branch. At each adaptive deadline the controller sends a
 60-byte experimental-EtherType 0x88b5 frame with a random session token and sequence
 through the selected branch port. High-priority transit rules cross s2/s3; edge
 rules punt the arriving frame to the controller and never to hosts. Validation
@@ -129,7 +129,8 @@ Latency includes controller/OpenFlow overhead; it is not a pure link RTT or loss
 probability. Both directions need four samples, each at most 2 s old. Health-only
 moves require an improvement exceeding .02 and a 2 s route hold-down, and wait for
 outstanding barriers. Hard port failures bypass that hold-down. Link changes clear
-old branch health. Approximately 16 small frames/s probe both live branches.
+old branch health. At the initial 250 ms spacing, both branches use approximately
+16 small frames/s; healthy spacing grows and loss accelerates probes.
 
 ## Socket–SDN observability and recovery definition
 
@@ -150,3 +151,23 @@ No route or no later useful ACK is censored/N/A, never zero. Repeated-fault
 attribution ends at the next intervention; a failure on the inactive branch is
 labeled separately. The joined SVG and recovery JSON preserve all three timestamps.
 See PROGRESS_LOG.md, DEMO.md and scripts/evaluate.py.
+
+## Optional multipath DATA and adaptive probes
+
+`client --multipath --upper-weight 3 --lower-weight 1` marks DATA with DSCP 8
+or 16 using sequence modulo total weight. Retries retain the sequence's mark;
+control packets reset to DSCP 0. The controller maps those marks onto eligible
+branches. This is forward DATA distribution; ACKs use the selected reverse route.
+It is not independent congestion control per path.
+
+A branch must have working ports and measured health within .02 of the selected
+path's score to join it. Unmeasured alternates are excluded. Removing an unhealthy
+mark-specific rule makes that traffic use the selected base route. Static mode
+installs no multipath overrides, preserving the permanent-failure comparison.
+
+Probe deadlines are independent per branch/direction. Successful healthy probes
+increase spacing up to 1.5 seconds; loss halves it to a 100 ms minimum. Degraded
+paths are capped at 250 ms. The tracker still expires outstanding probes at
+500 ms; the 1.5 s spacing leaves that deadline inside the 2 s health freshness.
+These changes need fresh Linux measurements; historical fixed-interval
+results do not measure their overhead or recovery behavior.

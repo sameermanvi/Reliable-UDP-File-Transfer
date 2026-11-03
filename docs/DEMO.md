@@ -81,3 +81,16 @@ docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab python 
 The console's `recovery=` is injection-to-progress, not link-down-to-progress.
 The CSV and joined events distinguish both. Never label a startup failure or
 uninjected transfer as successful failover.
+
+## Two simultaneous uploads
+
+Each flow uses a separate receiver process and UDP port on h2; the receiver is
+one upload per process, rather than a persistent multi-session service. Both
+senders run on h1. This demonstrates concurrent uploads, not separate sender hosts.
+
+```sh
+sudo .venv/bin/python scripts/run.py experiment --scenarios link-failure --modes failover --rtos adaptive --sacks bitmap --ccs off --flows 2 --repeats 1 --output results/live-concurrent
+```
+
+Check both flow rows for success, matching hashes and recovery. Rehearse this
+before assessment; use retained output during the ten-minute presentation.

@@ -65,6 +65,49 @@ class OpenFlowTests(unittest.TestCase):
             c._reconcile('link_down')
             self.assertEqual(c.path, 'lower')
 
+    def test_multipath_rules_follow_health_without_route_change(self):
+        c = self.controller
+        c.policy = connected_policy()
+        c.policy.health = {'upper': .01, 'lower': .01}
+        c.started = True
+        parser = MagicMock()
+        parser.OFPMatch.side_effect = lambda **kwargs: kwargs
+        dp = types.SimpleNamespace(
+            id=1, ofproto_parser=parser,
+            ofproto=types.SimpleNamespace(OFPIT_APPLY_ACTIONS=4, OFPFC_DELETE=3,
+                                         OFPP_ANY=0xffffffff, OFPG_ANY=0xffffffff),
+            send_msg=MagicMock(), set_xid=MagicMock())
+        c.datapaths = {1: dp}
+
+        def installed_dscps():
+            return {call.kwargs['match']['ip_dscp']
+                    for call in parser.OFPFlowMod.call_args_list
+                    if call.kwargs.get('priority') == 150}
+
+        c._reconcile('startup')
+        self.assertEqual(installed_dscps(), {8, 16})
+        parser.reset_mock()
+        c.pending.clear()
+        # The alternate degrades while the selected route remains upper.
+        c.policy.health['lower'] = .5
+        c._reconcile('health_update')
+        self.assertEqual(c.path, 'upper')
+        self.assertEqual(installed_dscps(), {8})
+        self.assertTrue(any(call.kwargs.get('cookie') == self.module.MULTIPATH_COOKIE
+                            and call.kwargs.get('command') == 3
+                            for call in parser.OFPFlowMod.call_args_list))
+        parser.reset_mock()
+        c.pending.clear()
+        c.last_route_change_ns = 0
+        c.policy.health = {'upper': .5, 'lower': .01}
+        c._reconcile('health_update')
+        self.assertEqual(c.path, 'lower')
+        self.assertEqual(installed_dscps(), {16})
+        parser.reset_mock()
+        c.policy.mode = 'static'
+        c._reconcile('startup', force=True)
+        self.assertFalse(installed_dscps())
+
     def test_old_barrier_never_marks_new_generation_ready(self):
         c = self.controller; c.generation = 2; c.pending = {(1, 10): 1}; c.path = 'lower'
         c.barrier_reply(types.SimpleNamespace(msg=types.SimpleNamespace(datapath=types.SimpleNamespace(id=1), xid=10)))

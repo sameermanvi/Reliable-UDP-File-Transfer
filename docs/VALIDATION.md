@@ -121,3 +121,29 @@ Historical material is preserved in [the archive](../results/archive/README.md).
 These measurements are retained from commit
 `79f097dea2ae8f61e70dd4558816531dfbbb97a5`. This newer client/codec interface has separate localhost checks. The recorded Linux
 measurements describe the earlier commit and its original source fingerprints.
+
+
+## Validate the final submission revision
+
+After merging, freeze the code and rebuild the Linux image from that checkout.
+Run the preflight and evaluation into fresh directories. Record the code commit
+alongside the output so later documentation commits cannot obscure its identity.
+
+```sh
+git rev-parse HEAD > results/submission-source.txt
+docker build -t rudp-lab:submission .
+sudo docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab:submission python scripts/run.py demo --mode failover --datapath user --output results/submission-preflight
+sudo docker run --rm --privileged -v "$PWD/results:/project/results" rudp-lab:submission python scripts/run.py evaluate --output results/submission-evaluation
+```
+
+The standard evaluation does not enable the optional multipath sender. Its
+successful completion alone cannot establish simultaneous use of both branches.
+Multipath needs a Linux trial with marked DATA, per-branch packet counters,
+matching hashes and hard/soft failure interventions. Localhost and recording
+OpenFlow tests cover implementation behavior, not that Mininet evidence gap.
+
+For an optional performance comparison, existing experiment switches support
+`--file-size`, `--delay`, `--flows` and `--ccs off on`. Change one factor at a time,
+use three repeats and fresh directories, and compare per-flow goodput and total
+goodput. A fairness claim requires competition measurements; it cannot be inferred
+from a clean single-flow transfer. No new performance measurements are claimed here.
