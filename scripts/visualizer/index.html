@@ -124,6 +124,10 @@
             stroke="#586069"
             stroke-width="4"
           />
+          <g id="cut-marker" visibility="hidden" aria-label="Broken link">
+            <circle r="16" fill="#0d1117"/>
+            <path d="M-8 -8L8 8M-8 8L8 -8" stroke="#ff7069" stroke-width="4"/>
+          </g>
           <g class="nodes">
             <circle cx="65" cy="110" r="24" />
             <circle cx="200" cy="110" r="22" />
@@ -143,6 +147,10 @@
             <text x="695" y="155">Receiver</text>
             <text x="380" y="12">UPPER PATH</text>
             <text x="380" y="218">LOWER PATH</text>
+          </g>
+          <g id="outstanding" visibility="hidden" fill="#f2b950">
+            <circle cx="122" cy="110" r="5"/><circle cx="139" cy="110" r="5"/><circle cx="156" cy="110" r="5"/>
+            <text id="outstanding-label" x="38" y="184"></text>
           </g>
           <g id="packet">
             <rect x="-62" y="-12" width="124" height="24" />
