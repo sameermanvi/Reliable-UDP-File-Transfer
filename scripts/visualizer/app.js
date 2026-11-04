@@ -168,6 +168,7 @@ function reset(event) {
 
   route = "upper";
   broken.clear();
+  for (const branch of ["upper", "lower"]) $(branch).removeAttribute("stroke-dasharray");
   seenMilestones.clear();
   sampled = {};
   firstRetry = null;
@@ -411,8 +412,15 @@ function ingest(e) {
   e.view = { ...producer };
   const local = sessionInfo.packets <= 32 && scenario < 5;
   const recordedCut = scenario === 5;
+  // Keep a few actual sender events after the switch, even late in a large file.
+  if (recordedCut && e.event === "link_down") sampled.cutSeen = true;
+  if (recordedCut && sampled.cutSeen && e.event === "route_ready")
+    sampled.remainingSends = 3;
+  const afterSwitch = recordedCut && sampled.remainingSends > 0 &&
+    ["send", "retransmit"].includes(e.event);
+  if (afterSwitch) { sampled.remainingSends--; e.afterSwitch = true; }
   const keep = recordedCut
-    ? [
+    ? afterSwitch || [
         "trial_metadata",
         "link_down",
         "route_ready",
@@ -644,8 +652,11 @@ function present(e) {
   }
   if (e.event === "link_down") {
     const path =
-      (e.dpid === 1 && e.port === 3) || e.dpid === 3 ? "lower" : "upper";
+      (e.dpid === 1 && e.port === 3) || (e.dpid === 4 && e.port === 2) || e.dpid === 3 ? "lower" : "upper";
     broken.add(path);
+    activeAnimation?.cancel();
+    $("packet").style.visibility = "hidden";
+    $(path).setAttribute("stroke-dasharray", "9 6");
     $(path).setAttribute("stroke", "#f85149");
     $("route-status").textContent = "LINK DOWN " + path;
     say(
@@ -673,13 +684,14 @@ function present(e) {
     $("sdn").textContent = JSON.stringify(latest, null, 2);
   }
   if (e.event === "recovery") {
+    packet("USEFUL ACK", false, true);
     say(
       "APPLICATION RECOVERED: First useful ACK after route readiness. Recorded link-down → useful ACK interval " +
         e.link_down_to_ack_ms.toFixed(3) +
         " ms. Playback pauses do not affect this measurement.",
     );
     $("route-status").textContent =
-      "RECOVERED " + e.link_down_to_ack_ms.toFixed(3) + " ms";
+      "ACK progress resumed via selected " + route + " branch · " + e.link_down_to_ack_ms.toFixed(3) + " ms";
   }
   if (e.event === "ack_progress" && scenario < 5 && scenario !== 2)
     say(
@@ -984,7 +996,7 @@ setInterval(() => {
   ].includes(milestone);
   const hold = slow && important && !seenMilestones.has(milestone);
   if (hold) seenMilestones.add(milestone);
-  nextAt = performance.now() + (hold || pivotal(e) ? 1200 : 120);
+  nextAt = performance.now() + (hold || pivotal(e) ? 1200 : e.afterSwitch ? 750 : 120);
 }, 20);
 setInterval(renderRaw, 500);
 $("filter").oninput = renderRaw;
