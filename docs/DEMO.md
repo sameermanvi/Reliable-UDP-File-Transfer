@@ -40,7 +40,10 @@ at packets 4, 14 and 23, or 4 to compare both modes on identical bytes.
 The C endpoints run first. Guided playback merges their events and relay frames
 by timestamp. Blue means sent, amber means buffered, and green means the client
 has acknowledged the contiguous prefix. Each card keeps its original ID.
-Scenario 5 replays a measured Mininet failover. For longer files the board
+Scenario 5 replays a measured Mininet failover. Guided playback samples traffic on both
+branches so the cut appears near the middle of the walkthrough. The cross marks
+the broken link. Amber markers show the sender waiting for ACK progress while
+the controller changes routes. The trace clock gives the measured recovery time. For longer files the board
 shows the first 32 packets while the counters cover the entire transfer.
 
 Use Guided playback for a guided walkthrough, Step-by-step to stop at losses and

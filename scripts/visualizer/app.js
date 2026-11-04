@@ -111,6 +111,7 @@ function clearBoard() {
   );
 }
 function seek(position) {
+  if (!timeline.length) return;
   const events = timeline,
     start = sessionInfo,
     clock = origin,
@@ -166,6 +167,11 @@ function reset(event) {
   raw = [];
   origin = null;
 
+  failoverRecords = [];
+  activeAnimation?.cancel();
+  $("packet").style.visibility = "hidden";
+  $("cut-marker").setAttribute("visibility", "hidden");
+  $("outstanding").setAttribute("visibility", "hidden");
   route = "upper";
   broken.clear();
   for (const branch of ["upper", "lower"]) $(branch).removeAttribute("stroke-dasharray");
@@ -411,26 +417,11 @@ function ingest(e) {
   if (e.event === "trial_metadata") producer.total = e.file_bytes;
   e.view = { ...producer };
   const local = sessionInfo.packets <= 32 && scenario < 5;
-  const recordedCut = scenario === 5;
-  // Keep a few actual sender events after the switch, even late in a large file.
-  if (recordedCut && e.event === "link_down") sampled.cutSeen = true;
-  if (recordedCut && sampled.cutSeen && e.event === "route_ready")
-    sampled.remainingSends = 3;
-  const afterSwitch = recordedCut && sampled.remainingSends > 0 &&
-    ["send", "retransmit"].includes(e.event);
-  if (afterSwitch) { sampled.remainingSends--; e.afterSwitch = true; }
-  const keep = recordedCut
-    ? afterSwitch || [
-        "trial_metadata",
-        "link_down",
-        "route_ready",
-        "recovery",
-        "recorded_metrics",
-        "session_end",
-      ].includes(e.event) ||
-      (["send", "ack_progress", "retransmit"].includes(e.event) &&
-        (e.sequence < 32 || e.base <= 32))
-    : local
+  if (scenario === 5) {
+    collectFailover(e);
+    return;
+  }
+  const keep = local
       ? [
           "send",
           "ack_progress",
@@ -450,6 +441,47 @@ function ingest(e) {
     $("scrub").max = timeline.length;
   }
 }
+// Show equally many real sends on each side of the cut, irrespective of the
+// recorded file offset. The trace clock and byte counters retain their values.
+let failoverRecords = [];
+function collectFailover(e) {
+  if (["trial_metadata", "send", "retransmit", "link_down", "route_ready",
+       "recovery", "recorded_metrics", "session_end"].includes(e.event))
+    failoverRecords.push(e);
+  if (e.event !== "session_end") return;
+
+  const cut = failoverRecords.find(r => r.event === "link_down");
+  const alternate = cut && failoverRecords.find(r => r.event === "route_ready" &&
+    r.monotonic_ns > cut.monotonic_ns && r.path === "lower");
+  const sends = failoverRecords.filter(r => r.event === "send");
+  if (cut) {
+    const last = sends.filter(r => r.monotonic_ns <= cut.monotonic_ns).at(-1);
+    const base = Math.floor(cut.view.bytes / 1024);
+    if (last && last.sequence >= base) cut.windowAtCut = [base, last.sequence];
+  }
+  const selected = new Set(failoverRecords.filter(r =>
+    !["send", "retransmit", "link_down"].includes(r.event)));
+  if (cut) selected.add(cut);
+  const sample = records => {
+    const count = Math.min(8, records.length);
+    for (let i = 0; i < count; i++)
+      selected.add(records[Math.round(i * (records.length - 1) / Math.max(1, count - 1))]);
+  };
+  sample(sends.filter(r => !cut || r.monotonic_ns < cut.monotonic_ns));
+  if (alternate) {
+    sample(sends.filter(r => r.monotonic_ns >= alternate.monotonic_ns));
+    const retry = failoverRecords.find(r => r.event === "retransmit" &&
+      r.monotonic_ns >= alternate.monotonic_ns);
+    if (retry) selected.add(retry);
+  }
+  for (const record of failoverRecords) {
+    if (selected.has(record)) timeline.push(record);
+  }
+  queue = timeline.slice();
+  $("scrub").max = timeline.length;
+  failoverRecords = [];
+}
+
 const stream = new EventSource("/api/stream");
 stream.onmessage = (m) => ingest(JSON.parse(m.data));
 stream.onerror = () =>
@@ -547,6 +579,10 @@ function compare() {
 function present(e) {
   view = { ...blank(), ...(e.view || view) };
   const seq = e.sequence;
+  if (scenario === 5 && view.bytes > 0) {
+    cumulative = Math.ceil(view.bytes / 1024);
+    board.slice(0, cumulative).forEach(slot => slot.state = "ACKED ✓ RECEIVED & ACKED");
+  }
   focusSequence = seq ?? (e.event === "gap_detected" ? e.base : undefined);
   const focus = [e.source, String(e.event || "record").replaceAll("_", " ")];
   if (focusSequence != null) focus.push("sequence #" + focusSequence);
@@ -656,9 +692,22 @@ function present(e) {
     broken.add(path);
     activeAnimation?.cancel();
     $("packet").style.visibility = "hidden";
+    if (scenario === 5 && path === "upper") {
+      $("cut-marker").setAttribute("visibility", "visible");
+      $("cut-marker").setAttribute("transform", e.dpid === 4 || (e.dpid === 2 && e.port === 2)
+        ? "translate(470 78)" : "translate(290 78)");
+      if (e.windowAtCut) {
+        const [first, last] = e.windowAtCut;
+        $("outstanding").setAttribute("visibility", "visible");
+        $("outstanding-label").textContent = "DATA #" + first + "–" + last + " · awaiting ACK progress";
+      }
+      $("lane").textContent = "Transfer active · waiting for an alternate route";
+    }
     $(path).setAttribute("stroke-dasharray", "9 6");
     $(path).setAttribute("stroke", "#f85149");
-    $("route-status").textContent = "LINK DOWN " + path;
+    $("route-status").textContent = scenario === 5
+      ? "LINK DOWN · transfer still open · waiting for lower-path rules"
+      : "LINK DOWN " + path;
     say(
       "LINK FAILURE — " +
         path.toUpperCase() +
@@ -670,6 +719,8 @@ function present(e) {
   }
   if (e.event === "route_ready") {
     route = e.path;
+    if (scenario === 5 && broken.size)
+      $("lane").textContent = "Backup route installed · waiting for the first advancing ACK";
     $(route).setAttribute("stroke", broken.has(route) ? "#f85149" : "#3fb950");
     $("route-status").textContent =
       "ROUTE READY " + route + " — barrier confirmed";
@@ -684,6 +735,8 @@ function present(e) {
     $("sdn").textContent = JSON.stringify(latest, null, 2);
   }
   if (e.event === "recovery") {
+    $("outstanding").setAttribute("visibility", "hidden");
+    if (scenario === 5) $("lane").textContent = "Lower route carrying traffic · ACK prefix advancing";
     packet("USEFUL ACK", false, true);
     say(
       "APPLICATION RECOVERED: First useful ACK after route readiness. Recorded link-down → useful ACK interval " +
@@ -996,7 +1049,10 @@ setInterval(() => {
   ].includes(milestone);
   const hold = slow && important && !seenMilestones.has(milestone);
   if (hold) seenMilestones.add(milestone);
-  nextAt = performance.now() + (hold || pivotal(e) ? 1200 : e.afterSwitch ? 750 : 120);
+  const delay = scenario === 5
+    ? ({link_down: 3400, route_ready: 1600, recovery: 1400, send: 760, retransmit: 850}[e.event] ?? 120)
+    : hold || pivotal(e) ? 1200 : 120;
+  nextAt = performance.now() + delay;
 }, 20);
 setInterval(renderRaw, 500);
 $("filter").oninput = renderRaw;
