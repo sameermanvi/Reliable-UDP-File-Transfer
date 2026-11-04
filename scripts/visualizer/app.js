@@ -295,8 +295,9 @@ fetch("/api/trials")
   )
   .catch(error);
 function renderRing() {
-  $("window-label").textContent =
-    "Permanent packet IDs · showing #0–" +
+  $("window-label").textContent = scenario === 5
+    ? "Displayed packets 1–" + board.length + " · " + cumulative + " acknowledged · trace sequence on each card"
+    : "Permanent packet IDs · showing #0–" +
     (board.length - 1) +
     " · client ACK covers " +
     cumulative +
@@ -309,8 +310,8 @@ function renderRing() {
         slot.state.split(" ")[0] +
         (n === focusSequence ? " current-slot" : "");
       for (const text of [
-        "PKT #" + n,
-        n * 1024 + "–" + (n * 1024 + 1023) + " B",
+        scenario === 5 ? "PACKET " + (n+1) : "PKT #" + n,
+        scenario === 5 ? (slot.traceSeq == null ? "Waiting for trace" : "Trace #" + slot.traceSeq) : n * 1024 + "–" + (n * 1024 + 1023) + " B",
         slot.state,
         slot.retries ? "Retries: " + slot.retries : "",
       ]) {
@@ -441,41 +442,44 @@ function ingest(e) {
     $("scrub").max = timeline.length;
   }
 }
-// Show equally many real sends on each side of the cut, irrespective of the
-// recorded file offset. The trace clock and byte counters retain their values.
+// Display order is 1-based; source sequence numbers and clocks stay in the trace.
 let failoverRecords = [];
 function collectFailover(e) {
-  if (["trial_metadata", "send", "retransmit", "link_down", "route_ready",
-       "recovery", "recorded_metrics", "session_end"].includes(e.event))
-    failoverRecords.push(e);
+  if (["trial_metadata", "send", "ack_progress", "retransmit", "link_down",
+       "route_ready", "recovery", "recorded_metrics", "session_end"].includes(e.event))
+    failoverRecords.push({...e});
   if (e.event !== "session_end") return;
 
   const cut = failoverRecords.find(r => r.event === "link_down");
   const alternate = cut && failoverRecords.find(r => r.event === "route_ready" &&
     r.monotonic_ns > cut.monotonic_ns && r.path === "lower");
   const sends = failoverRecords.filter(r => r.event === "send");
-  if (cut) {
-    const last = sends.filter(r => r.monotonic_ns <= cut.monotonic_ns).at(-1);
-    const base = Math.floor(cut.view.bytes / 1024);
-    if (last && last.sequence >= base) cut.windowAtCut = [base, last.sequence];
-  }
-  const selected = new Set(failoverRecords.filter(r =>
-    !["send", "retransmit", "link_down"].includes(r.event)));
-  if (cut) selected.add(cut);
-  const sample = records => {
-    const count = Math.min(8, records.length);
-    for (let i = 0; i < count; i++)
-      selected.add(records[Math.round(i * (records.length - 1) / Math.max(1, count - 1))]);
-  };
-  sample(sends.filter(r => !cut || r.monotonic_ns < cut.monotonic_ns));
-  if (alternate) {
-    sample(sends.filter(r => r.monotonic_ns >= alternate.monotonic_ns));
-    const retry = failoverRecords.find(r => r.event === "retransmit" &&
-      r.monotonic_ns >= alternate.monotonic_ns);
-    if (retry) selected.add(retry);
-  }
-  for (const record of failoverRecords) {
-    if (selected.has(record)) timeline.push(record);
+  const before = sends.filter(r => cut && r.monotonic_ns < cut.monotonic_ns);
+  const firstUnconfirmed = cut ? Math.floor(cut.view.bytes / 1024) : 0;
+  const pending = before.filter(r => r.sequence >= firstUnconfirmed).slice(-4);
+  const upper = before.filter(r => r.sequence < firstUnconfirmed).slice(0,16-pending.length).concat(pending);
+  const lower = sends.filter(r => alternate && r.monotonic_ns >= alternate.monotonic_ns).slice(0,16);
+  const packets = upper.concat(lower);
+  const ids = new Map(packets.map((r,i) => [r.sequence,i]));
+  let acked = 0;
+  for (const r of failoverRecords) {
+    if (r.event === "trial_metadata") r.demoSequences = packets.map(p => p.sequence);
+    if (r.event === "send" || r.event === "retransmit") {
+      if (!ids.has(r.sequence)) continue;
+      r.demoIndex = ids.get(r.sequence);
+    }
+    if (r.event === "ack_progress") {
+      let end = acked;
+      while (end < packets.length && packets[end].sequence < r.base) end++;
+      if (end === acked) continue;
+      r.demoAckBase = end;
+      acked = end;
+    }
+    if (r.event === "link_down") {
+      if (r !== cut) continue;
+      if (pending.length) r.windowAtCut = [upper.length-pending.length+1, upper.length];
+    }
+    timeline.push(r);
   }
   queue = timeline.slice();
   $("scrub").max = timeline.length;
@@ -514,7 +518,7 @@ function packet(label, red = false, reverse = false) {
     points.map(([x, y]) => ({
       transform: "translate(" + x + "px," + y + "px)",
     })),
-    { duration: slow ? 650 : 180, fill: "forwards" },
+    { duration: scenario === 5 ? (reverse ? 340 : 550) : slow ? 650 : 180, fill: "forwards" },
   );
 }
 function frame(e) {
@@ -578,14 +582,12 @@ function compare() {
 }
 function present(e) {
   view = { ...blank(), ...(e.view || view) };
-  const seq = e.sequence;
-  if (scenario === 5 && view.bytes > 0) {
-    cumulative = Math.ceil(view.bytes / 1024);
-    board.slice(0, cumulative).forEach(slot => slot.state = "ACKED ✓ RECEIVED & ACKED");
-  }
+  const seq = e.demoIndex ?? e.sequence;
+  const packetName = e.demoIndex == null ? "#" + seq : (seq + 1) + "/" + board.length;
   focusSequence = seq ?? (e.event === "gap_detected" ? e.base : undefined);
   const focus = [e.source, String(e.event || "record").replaceAll("_", " ")];
-  if (focusSequence != null) focus.push("sequence #" + focusSequence);
+  if (e.demoIndex != null) focus.push("packet " + packetName + " · trace #" + e.sequence);
+  else if (focusSequence != null) focus.push("sequence #" + focusSequence);
   if (e.path) focus.push("path " + e.path);
   if (e.monotonic_ns && origin !== null)
     focus.push(
@@ -608,6 +610,11 @@ function present(e) {
       e.trial +
       ". Measured times refer to backend monotonic timestamps.";
     view.total = e.file_bytes;
+    if (e.demoSequences) {
+      board = e.demoSequences.map(traceSeq => ({state:"WAITING", retries:0, traceSeq}));
+      $("network-mode").textContent = "Recorded Mininet transfer · display packets 1–16 use upper; 17–32 use lower. Trace IDs appear on the cards.";
+      $("notice").textContent += " Scoreboard and hash cover the full recorded file.";
+    }
   }
   if (e.event === "frame") {
     frame(e);
@@ -639,15 +646,17 @@ function present(e) {
       );
   }
   if (e.event === "send") {
-    packet("DATA #" + seq);
+    packet("DATA " + packetName);
     say(
-      "PIPELINED DATA #" +
-        seq +
+      "PIPELINED DATA " +
+        packetName +
         ": The sender retains this chunk until ACK coverage frees the slot. Current contiguous base is " +
         cumulative +
         ".",
     );
   }
+  if (e.event === "send" && scenario === 5)
+    say("Packet " + packetName + " is travelling along the " + route + " branch. Watch for its ACK.");
   if (e.event === "dropped_gap") {
     packet("DROP #" + seq, true);
     say(
@@ -672,14 +681,14 @@ function present(e) {
   }
   if (e.event === "retransmit") {
     const fast = e.reason === "fast_gap";
-    packet((fast ? "FAST RETRY #" : "TIMEOUT #") + seq, broken.has(route));
+    packet((fast ? "FAST RETRY " : "TIMEOUT ") + packetName, broken.has(route));
     say(
       (fast
-        ? "FAST RETRANSMIT #" +
-          seq +
+        ? "FAST RETRANSMIT " +
+          packetName +
           ": Three distinct later-ACK reports triggered a selective retry before the timer."
-        : "TIMEOUT RETRY #" +
-          seq +
+        : "TIMEOUT RETRY " +
+          packetName +
           ": The ACK deadline expired, so the sender retries this missing chunk.") +
         (scenario === 6
           ? " The static route still points at the cut link."
@@ -699,7 +708,7 @@ function present(e) {
       if (e.windowAtCut) {
         const [first, last] = e.windowAtCut;
         $("outstanding").setAttribute("visibility", "visible");
-        $("outstanding-label").textContent = "DATA #" + first + "–" + last + " · awaiting ACK progress";
+        $("outstanding-label").textContent = "Packets " + first + "–" + last + " · awaiting ACK progress";
       }
       $("lane").textContent = "Transfer active · waiting for an alternate route";
     }
@@ -874,7 +883,7 @@ function present(e) {
   ) {
     cumulative = Math.max(
       cumulative,
-      e.event === "ack_progress" ? e.base : Math.ceil(view.total / 1024),
+      e.event === "ack_progress" ? (e.demoAckBase ?? e.base) : scenario === 5 ? board.length : Math.ceil(view.total / 1024),
     );
     board
       .slice(0, cumulative)
@@ -895,6 +904,10 @@ function present(e) {
       "START acknowledged. Session 0x" +
       e.transfer_id +
       (e.wire_type === 9 ? " negotiated SACK." : " uses plain ACKs.");
+  if (e.demoAckBase != null) {
+    story = "ACK returned · " + e.demoAckBase + " of " + board.length + " displayed packets confirmed.";
+    packet("ACK " + e.demoAckBase, false, true);
+  }
   if (story) say(story);
   if (
     pivotal(e) ||
@@ -932,6 +945,10 @@ function present(e) {
     board.filter((b) => b.state.startsWith("BUFFERED")).length +
     " · integrity " +
     $("integrity").textContent;
+  if (scenario === 5) {
+    $("client-state").textContent = "Displayed DATA · " + nextSeq + " sent · " + cumulative + " acknowledged";
+    $("server-state").textContent = "Recorded file integrity · " + $("integrity").textContent;
+  }
   const wire = $("lane");
   if (
     e.event === "send" ||
@@ -948,7 +965,7 @@ function present(e) {
       : story ||
         (e.event === "frame"
           ? "Wire frame " + e.wire_type + " · CRC32 0x" + e.crc32
-          : e.event.toUpperCase() + " #" + seq);
+          : e.event.toUpperCase() + " " + packetName);
     wire.replaceChildren(badge);
     badge.animate(
       [
@@ -1050,7 +1067,7 @@ setInterval(() => {
   const hold = slow && important && !seenMilestones.has(milestone);
   if (hold) seenMilestones.add(milestone);
   const delay = scenario === 5
-    ? ({link_down: 3400, route_ready: 1600, recovery: 1400, send: 760, retransmit: 850}[e.event] ?? 120)
+    ? ({link_down: 3400, route_ready: 1600, recovery: 1400, send: 640, ack_progress: 400, retransmit: 770}[e.event] ?? 120)
     : hold || pivotal(e) ? 1200 : 120;
   nextAt = performance.now() + delay;
 }, 20);
